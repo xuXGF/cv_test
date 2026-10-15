@@ -108,6 +108,25 @@ def build_sample_report() -> TestReport:
 
 def build_sample_report() -> TestReport:
     report = TestReport()
+    report.basic_info.__dict__.update(model_info.__dict__)
+    report.basic_info.__dict__.update(local_info.__dict__)
+    report.basic_info.__dict__.update(device_info.__dict__)
+
+    report.report_title = f"{model_info.model_name}模型测评报告"
+    report.basic_info.report_name = report.report_title
+    report.basic_info.report_no = "RPT-2026-0001"
+    report.basic_info.test_date = time.strftime("%Y/%m/%d %H:%M", time.localtime())
+    # report.basic_info.conclusion = "通过"
+
+    # 1.2 模型字段与 ModelInfo 同名，由上方合并自动填充；参数量格式化为可读字符串
+    report.basic_info.param_count = format_params(model_info.param_count)
+
+    # 1.3 设备信息与 DeviceInfo 同名，由上方合并自动填充
+
+    # 1.4 环境字段与 ModelInfo 同名（深度学习框架/输入分辨率复用
+    #     train_framework/input_size），由上方合并自动填充
+
+
     # 第 2 章：测试数据集说明
     # 合并顺序即优先级（后者覆盖前者）：模型侧字段 -> 数据集扫描 -> 本地手填
     report.dataset.__dict__.update(model_info.__dict__)
@@ -118,6 +137,7 @@ def build_sample_report() -> TestReport:
     # 合并顺序即优先级（后者覆盖前者）：边缘端量化模型（ONNX 实测） -> 本地手填
     report.config.__dict__.update(model_info.__dict__)     # 3.1 边缘端列（字段名与 ModelInfo 对齐）
     report.config.__dict__.update(local_info.__dict__)     # 3.1 云端列 + 3.2/3.3/3.4 配置值（说明列模板写死）
+
 
     return report
 
