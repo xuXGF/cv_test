@@ -1,0 +1,28 @@
+# 压缩包
+*.zip
+*.rar
+*.7z
+
+# Python
+__pycache__/
+*$py.class
+*.so
+
+# 数据集、大模型权重
+*.pth
+*.pt
+*.onnx
+!model_info/yolov8n.onnx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+
+# dataset_info data下所有内容，保留空目录
+dataset_info/data/*
+!dataset_info/data/.gitkeep
+!dataset_info/data/coco128.zip
+

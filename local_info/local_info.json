@@ -1,0 +1,6 @@
+{
+    "algo_type":"目标检测",
+    "dataset_name":"coco数据集",
+    "data_source":"网络公开数据集",
+    "data_type":"图像"
+}
