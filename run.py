@@ -114,6 +114,11 @@ def build_sample_report() -> TestReport:
     report.dataset.__dict__.update(dataset_info.__dict__)  # 2.1 基本信息 / 2.3 标签格式转换
     report.dataset.__dict__.update(local_info.__dict__)    # 手填字段：数据集名称/来源/类型、2.2 边缘场景
 
+    # 第 3 章：测试配置
+    # 合并顺序即优先级（后者覆盖前者）：边缘端量化模型（ONNX 实测） -> 本地手填
+    report.config.__dict__.update(model_info.__dict__)     # 3.1 边缘端列（字段名与 ModelInfo 对齐）
+    report.config.__dict__.update(local_info.__dict__)     # 3.1 云端列 + 3.2/3.3/3.4 配置值（说明列模板写死）
+
     return report
 
 

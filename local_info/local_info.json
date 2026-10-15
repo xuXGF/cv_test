@@ -1,6 +1,38 @@
 {
-    "algo_type":"目标检测",
-    "dataset_name":"coco数据集",
-    "data_source":"网络公开数据集",
-    "data_type":"图像"
+    "algo_type": "目标检测",
+    "dataset_name": "coco数据集",
+    "data_source": "网络公开数据集",
+    "data_type": "图像",
+
+    "cloud_model_name": "yolov8n",
+    "cloud_model_version": "8.4.82",
+    "cloud_model_format": "PyTorch (.pt)",
+    "cloud_model_precision": "FP32",
+    "cloud_model_size": "6.2 MB",
+    "cloud_input_size": "640x640",
+    "cloud_batch_size": "1",
+    "cloud_param_count": "3,157,200",
+
+    "img_input_size": "640x640",
+    "img_channels": "3",
+    "img_format": "JPEG / PNG",
+
+    "conf_threshold": "0.25",
+    "nms_threshold": "0.45",
+    "iou_threshold": "0.5",
+    "device_mode": "CPU",
+    "other_infer_params": "无",
+
+    "acc_warmup": "3",
+    "acc_rounds": "1",
+    "acc_samples": "128（全量）",
+    "acc_stat_method": "单次全量统计",
+    "perf_warmup": "3",
+    "perf_rounds": "10",
+    "perf_samples": "1（单图重复推理）",
+    "perf_stat_method": "均值 / 标准差 / 极值",
+    "edge_warmup": "3",
+    "edge_rounds": "0",
+    "edge_samples": "各场景子集",
+    "edge_stat_method": "单次全量统计"
 }

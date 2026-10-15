@@ -12,35 +12,32 @@ _TEMPLATE = r"""# 3. 测试配置
 
 | 配置项        | 云端原始模型 | 边缘端量化模型 |
 | ---------- | ------ | ------- |
-| 模型名称       | {{cloud_model_name}} | {{edge_model_name}}  |
-| 模型版本       | {{cloud_model_version}} | {{edge_model_version}}  |
+| 模型名称       | {{cloud_model_name}} | {{model_name}}  |
+| 模型版本       | {{cloud_model_version}} | {{model_version}}  |
 | 模型格式       | {{cloud_model_format}} | {{edge_model_format}}  |
-| 模型精度       | {{cloud_model_precision}} | {{edge_model_precision}}  |
-| 模型大小       | {{cloud_model_size}} | {{edge_model_size}}  |
-| 输入尺寸       | {{cloud_input_size}} | {{edge_input_size}}  |
-| Batch Size | {{cloud_batch_size}} | {{edge_batch_size}}  |
-| 参数量        | {{cloud_param_count}} | {{edge_param_count}}  |
+| 模型精度       | {{cloud_model_precision}} | {{model_precision}}  |
+| 模型大小       | {{cloud_model_size}} | {{model_size}}  |
+| 输入尺寸       | {{cloud_input_size}} | {{input_size}}  |
+| Batch Size | {{cloud_batch_size}} | {{batch_size}}  |
+| 参数量        | {{cloud_param_count}} | {{param_count}}  |
 
 ## 3.2 图像参数
 
 | 参数   | 配置值    | 说明     |
 | ---- | ------ | ------ |
-| 输入尺寸 | {{img_input_size}} | {{img_input_size_note}} |
-| 输入通道 | {{img_channels}} | {{img_channels_note}} |
-| 图像格式 | {{img_format}} | {{img_format_note}} |
+| 输入尺寸 | {{img_input_size}} | 推理前将图像缩放至模型输入尺寸 |
+| 输入通道 | {{img_channels}} | RGB 三通道 |
+| 图像格式 | {{img_format}} | JPEG / PNG |
 
 ## 3.3 推理参数
 
 | 参数                   | 配置值    | 说明     |
 | -------------------- | ------ | ------ |
-| Confidence Threshold | {{conf_threshold}} | {{conf_threshold_note}} |
-| NMS Threshold        | {{nms_threshold}} | {{nms_threshold_note}} |
-| IoU Threshold        | {{iou_threshold}} | {{iou_threshold_note}} |
-| Top-K                | {{top_k}} | {{top_k_note}} |
-| 最大检测数量               | {{max_detections}} | {{max_detections_note}} |
-| 推理线程数                | {{num_threads}} | {{num_threads_note}} |
-| CPU/GPU/NPU模式        | {{device_mode}} | {{device_mode_note}} |
-| 其他参数                 | {{other_infer_params}} | {{other_infer_params_note}} |
+| Confidence Threshold | {{conf_threshold}} | 置信度阈值，低于该值的检测结果会被忽略 |
+| NMS Threshold        | {{nms_threshold}} | 重复检测结果的过滤强度，值越小过滤越严格 |
+| IoU Threshold        | {{iou_threshold}} | 判断两个检测框是否重叠过多的标准 |
+| CPU/GPU/NPU模式        | {{device_mode}} | 选择使用 CPU、显卡还是专用芯片来运行模型 |
+| 其他参数                 | {{other_infer_params}} | 其他自定义推理参数 |
 
 ## 3.4 测试次数
 
@@ -53,53 +50,52 @@ _TEMPLATE = r"""# 3. 测试配置
 
 @dataclass
 class ConfigSection:
-    """第 3 章：测试配置。"""
+    """第 3 章：测试配置。
 
-    # 3.1 模型配置
-    cloud_model_name: str = ""  # 模型名称（云端原始模型）
-    edge_model_name: str = ""  # 模型名称（边缘端量化模型）
-    cloud_model_version: str = ""  # 模型版本（云端原始模型）
-    edge_model_version: str = ""  # 模型版本（边缘端量化模型）
-    cloud_model_format: str = ""  # 模型格式（云端原始模型）
-    edge_model_format: str = ""  # 模型格式（边缘端量化模型）
-    cloud_model_precision: str = ""  # 模型精度（云端原始模型）
-    edge_model_precision: str = ""  # 模型精度（边缘端量化模型）
-    cloud_model_size: str = ""  # 模型大小（云端原始模型）
-    edge_model_size: str = ""  # 模型大小（边缘端量化模型）
-    cloud_input_size: str = ""  # 输入尺寸（云端原始模型）
-    edge_input_size: str = ""  # 输入尺寸（边缘端量化模型）
-    cloud_batch_size: str = ""  # Batch Size（云端原始模型）
-    edge_batch_size: str = ""  # Batch Size（边缘端量化模型）
-    cloud_param_count: str = ""  # 参数量（云端原始模型）
-    edge_param_count: str = ""  # 参数量（边缘端量化模型）
+    填充方式：
 
-    # 3.2 图像参数
+    * 3.1「云端原始模型」列与 3.2/3.3/3.4 的配置值：由 ``local_info.json``
+      手动填写，键名与本类字段名一致。
+    * 3.1「边缘端量化模型」列：字段名与 ``ModelInfo`` 一致
+      （``model_name``/``model_version``/``edge_model_format``/``model_precision``/
+      ``model_size``/``input_size``/``batch_size``/``param_count``），
+      可通过 ``report.config.__dict__.update(model_info.__dict__)`` 直接填充。
+    * 3.2/3.3 的「说明」列为模板写死文案，不经 JSON 填充。
+    """
+
+    # 3.1 模型配置——云端原始模型（local_info.json 手动填写）
+    cloud_model_name: str = ""  # 模型名称
+    cloud_model_version: str = ""  # 模型版本
+    cloud_model_format: str = ""  # 模型格式
+    cloud_model_precision: str = ""  # 模型精度
+    cloud_model_size: str = ""  # 模型大小
+    cloud_input_size: str = ""  # 输入尺寸
+    cloud_batch_size: str = ""  # Batch Size
+    cloud_param_count: str = ""  # 参数量
+
+    # 3.1 模型配置——边缘端量化模型（字段名与 ModelInfo 对齐，自动填充）
+    model_name: str = ""  # 模型名称
+    model_version: str = ""  # 模型版本
+    edge_model_format: str = ""  # 模型格式（ModelInfo.edge_model_format，ONNX）
+    model_precision: str = ""  # 模型精度（ModelInfo.model_precision）
+    model_size: str = ""  # 模型大小
+    input_size: str = ""  # 输入尺寸
+    batch_size: str = ""  # Batch Size
+    param_count: str = ""  # 参数量
+
+    # 3.2 图像参数（配置值由 local_info.json 填写，说明列模板写死）
     img_input_size: str = ""  # 输入尺寸-配置值
-    img_input_size_note: str = ""  # 输入尺寸-说明
     img_channels: str = ""  # 输入通道-配置值
-    img_channels_note: str = ""  # 输入通道-说明
     img_format: str = ""  # 图像格式-配置值
-    img_format_note: str = ""  # 图像格式-说明
 
-    # 3.3 推理参数
+    # 3.3 推理参数（配置值由 local_info.json 填写，说明列模板写死）
     conf_threshold: str = ""  # Confidence Threshold-配置值
-    conf_threshold_note: str = ""  # Confidence Threshold-说明
     nms_threshold: str = ""  # NMS Threshold-配置值
-    nms_threshold_note: str = ""  # NMS Threshold-说明
     iou_threshold: str = ""  # IoU Threshold-配置值
-    iou_threshold_note: str = ""  # IoU Threshold-说明
-    top_k: str = ""  # Top-K-配置值
-    top_k_note: str = ""  # Top-K-说明
-    max_detections: str = ""  # 最大检测数量-配置值
-    max_detections_note: str = ""  # 最大检测数量-说明
-    num_threads: str = ""  # 推理线程数-配置值
-    num_threads_note: str = ""  # 推理线程数-说明
     device_mode: str = ""  # CPU/GPU/NPU模式-配置值
-    device_mode_note: str = ""  # CPU/GPU/NPU模式-说明
     other_infer_params: str = ""  # 其他参数-配置值
-    other_infer_params_note: str = ""  # 其他参数-说明
 
-    # 3.4 测试次数
+    # 3.4 测试次数（由 local_info.json 填写）
     acc_warmup: str = ""  # 精度测试-预热次数
     acc_rounds: str = ""  # 精度测试-正式测试次数
     acc_samples: str = ""  # 精度测试-测试样本数
