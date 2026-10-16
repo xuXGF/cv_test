@@ -1,5 +1,6 @@
 # from __future__ import annotations
 
+import json
 from pathlib import Path
 import time
 from tools import *
@@ -137,6 +138,21 @@ def build_sample_report() -> TestReport:
     # 合并顺序即优先级（后者覆盖前者）：边缘端量化模型（ONNX 实测） -> 本地手填
     report.config.__dict__.update(model_info.__dict__)     # 3.1 边缘端列（字段名与 ModelInfo 对齐）
     report.config.__dict__.update(local_info.__dict__)     # 3.1 云端列 + 3.2/3.3/3.4 配置值（说明列模板写死）
+
+    # 第 4/5 章：精度与速度
+    # 合并顺序即优先级（后者覆盖前者）：本地手填（云端原始模型指标） ->
+    # 测评导出（metrics_summary.json，字段名与 s04/s05 对齐，覆盖边缘端列）
+
+    # 4.3 边缘端列
+    text = (OUTPUT_DIR / "metrics_summary.json").read_text(encoding="utf-8")
+    eval_metrics = json.loads(text)
+    report.accuracy.__dict__.update(local_info.__dict__)
+    report.accuracy.__dict__.update(eval_metrics)
+       
+    # 5.1-5.3 边缘端列
+    report.speed.__dict__.update(local_info.__dict__)
+    report.speed.__dict__.update(eval_metrics)
+           
 
 
     return report
