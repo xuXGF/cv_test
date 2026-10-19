@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from tools import pct, to_float
+
 from ..render import render
 
 _TEMPLATE = r"""# 5. 推理速度评测
@@ -84,6 +86,28 @@ class SpeedSection:
     bs4_cpu: str = ""  # Batch Size=4-CPU利用率
     bs4_npu: str = ""  # Batch Size=4-GPU/NPU利用率
     bs4_mem: str = ""  # Batch Size=4-内存占用
+
+    def fill_cloud_ratios(self) -> None:
+        """5.3 云端各阶段耗时占比：由 5.2 手填耗时计算，不手填。
+
+        占比 = 对应阶段耗时 / 总耗时 × 100%
+        """
+        total = to_float(self.stage_cloud_total, "stage_cloud_total")
+        self.ratio_cloud_pre = pct(
+            to_float(self.stage_cloud_pre, "stage_cloud_pre"),
+            total,
+            "stage_cloud_total",
+        )
+        self.ratio_cloud_infer = pct(
+            to_float(self.stage_cloud_infer, "stage_cloud_infer"),
+            total,
+            "stage_cloud_total",
+        )
+        self.ratio_cloud_post = pct(
+            to_float(self.stage_cloud_post, "stage_cloud_post"),
+            total,
+            "stage_cloud_total",
+        )
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

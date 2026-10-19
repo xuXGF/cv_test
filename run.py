@@ -148,10 +148,17 @@ def build_sample_report() -> TestReport:
     eval_metrics = json.loads(text)
     report.accuracy.__dict__.update(local_info.__dict__)
     report.accuracy.__dict__.update(eval_metrics)
-       
+    # 4.5 mAP 对比行：由 4.3 数据计算损失/相对损失，不手填
+    report.accuracy.fill_map_comparison()
+
     # 5.1-5.3 边缘端列
     report.speed.__dict__.update(local_info.__dict__)
     report.speed.__dict__.update(eval_metrics)
+    # 5.3 云端各阶段耗时占比：由 5.2 耗时计算，不手填
+    report.speed.fill_cloud_ratios()
+    # 5.4 Batch Size 性能（evaluate_yolov8_onnx_batch.py 导出，字段名与 s05 对齐）
+    text = (OUTPUT_DIR / "batch_metrics.json").read_text(encoding="utf-8")
+    report.speed.__dict__.update(json.loads(text))
            
 
 

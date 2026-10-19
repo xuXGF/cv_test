@@ -13,3 +13,31 @@ def format_params(param_str: str | int) -> str:
         return f"{num / 1e3:.2f}K"
     else:
         return f"{num}"
+
+
+def to_float(value: object, field: str = "") -> float:
+    """
+    将值转为 float，失败时抛出带字段名的 ValueError，不做静默兜底
+    :param value: 待转换值，通常为 JSON/配置中的字符串
+    :param field: 字段名，用于错误提示
+    :return: 转换后的浮点数
+    """
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        label = f"字段 {field}" if field else "数值"
+        raise ValueError(f"{label}不是有效数值: {value!r}") from exc
+
+
+def pct(part: float, total: float, label: str = "") -> str:
+    """
+    计算占比：部分 / 总量 × 100%，保留 1 位小数
+    :param part: 部分值
+    :param total: 总量，为 0 时抛出 ValueError
+    :param label: 字段名，用于错误提示
+    :return: 例 5.0%
+    """
+    try:
+        return f"{part / total * 100:.1f}%"
+    except ZeroDivisionError as exc:
+        raise ValueError(f"{label}为 0，无法计算占比") from exc

@@ -13,6 +13,21 @@
     "cloud_batch_size": "1",
     "cloud_param_count": "3,157,200",
 
+    "det_cloud_map05": "0.6231",
+    "det_cloud_map95": "0.4512",
+    "det_cloud_precision": "0.7842",
+    "det_cloud_recall": "0.5103",
+    "det_cloud_samples": "128",
+
+    "cmp_map_ok": "是",
+
+    "speed_cloud_latency": "38.465",
+    "speed_cloud_fps": "26.00",
+    "stage_cloud_pre": "1.852",
+    "stage_cloud_infer": "34.215",
+    "stage_cloud_post": "2.398",
+    "stage_cloud_total": "38.465",
+
     "img_input_size": "640x640",
     "img_channels": "3",
     "img_format": "JPEG / PNG",
