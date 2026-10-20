@@ -43,32 +43,12 @@ code/
 ```bash
 # 一键采集模型/设备/数据集信息并生成报告 -> output/report_sample.md
 python run.py
-```
-
-各模块也可单独使用：
-
-```bash
-# 查看当前设备硬件信息
-python -m device_info
-
-# 打印模型元数据并运行推理基准测试（缺省使用包内自带 yolov8n.onnx 与 test.jpg）
-python -m model_info
-python -m model_info <模型路径> [图片路径]   # 指定模型与测试图片
-
-# 数据集扫描与预处理（缺省使用包内自带 data/coco128）
-python -m dataset_info scan [数据集目录] [--coco-json 路径]     # 扫描并打印报告字段
-python -m dataset_info convert [目录] [--coco-json 路径]        # COCO 标注 -> YOLO txt
-python -m dataset_info convert-format [目录] [--to .jpg] [--replace]  # 图片格式统一
-python -m dataset_info resize [目录] --size 640x640 [--letterbox]     # 尺寸统一
-python -m dataset_info clean [目录] [--apply]                   # 数据清洗（缺省仅检测）
-python -m dataset_info anomaly [目录] [--apply]                 # 异常数据处理（缺省仅检测）
-
-# 查看本地手填信息
-python -m local_info
 
 # 生成空模板报告（验证与 template.md 一致）
 python generate_report.py
 ```
+
+各信息采集模块（`model_info` / `device_info` / `dataset_info` / `local_info`）通过 Python 代码调用，用法见各包 `__init__.py` 的 docstring。
 
 ## 工作原理
 

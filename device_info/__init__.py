@@ -11,10 +11,6 @@
     info = collect_device_info()
     print(info.soc, info.cpu, info.memory, ...)
 
-命令行直接查看采集结果::
-
-    python -m device_info
-
 说明：
 
 * 支持 Linux（RK3588/Jetson 等边缘设备）与 macOS（本地开发机）。

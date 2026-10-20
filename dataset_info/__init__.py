@@ -22,16 +22,6 @@
     report.dataset.__dict__.update(info.__dict__)        # 自动采集字段
     report.dataset.__dict__.update(local_info.__dict__)  # 本地手填字段（含边缘场景）优先
 
-命令行::
-
-    python -m dataset_info                                   # 扫描包内自带数据集
-    python -m dataset_info scan [目录] [--coco-json 路径]      # 扫描
-    python -m dataset_info convert [目录] [--coco-json 路径]   # COCO -> YOLO txt
-    python -m dataset_info convert-format [目录] [--to .jpg] [--replace]
-    python -m dataset_info resize [目录] --size 640x640 [--letterbox]
-    python -m dataset_info clean [目录] [--apply]
-    python -m dataset_info anomaly [目录] [--apply]
-
 说明：
 
 * 边缘场景数据（2.2 节）由本地文件（``local_info.json``）手动填写，

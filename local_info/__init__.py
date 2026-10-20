@@ -10,10 +10,6 @@
     info = load_local_info()
     info.soc   # 属性名即 JSON 中手写的键
 
-命令行查看当前内容::
-
-    python -m local_info
-
 说明：
 
 * JSON 顶层必须是对象（``{...}``），每个键成为对象的一个属性。

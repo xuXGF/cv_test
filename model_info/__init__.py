@@ -18,11 +18,6 @@
     result = benchmark(session, image_bgr, warmup=3, rounds=10)
     print(result.total_ms, result.fps)
 
-命令行直接查看::
-
-    python -m model                    # 打印模型元数据与基准测试（自带模型/图片）
-    python -m model <模型路径> [图片路径]  # 指定模型与测试图片
-
 说明：
 
 * 采集不到的字段保持空字符串（例如 FLOPs），不自动填入虚假值。
