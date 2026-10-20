@@ -29,16 +29,16 @@ _TEMPLATE = r"""# 6. 评测结果对比与分析
 | **场景4** | {{sc6_04_samples}} | {{sc6_04_orig}} | {{sc6_04_quant}} | {{sc6_04_delta}} | {{sc6_04_ok}} |
 | **场景5** | {{sc6_05_samples}} | {{sc6_05_orig}} | {{sc6_05_quant}} | {{sc6_05_delta}} | {{sc6_05_ok}} |
 
-## 6.3 精度损失分析
+## 6.3 边缘场景泛化表现分析
 
-| 指标     |   原始模型 |   量化模型 |   精度损失 | 主要影响场景 | 原因分析   |
-| ------ | -----: | -----: | -----: | ------ | ------ |
-| {{loss_1_metric}} | {{loss_1_orig}} | {{loss_1_quant}} | {{loss_1_loss}} | {{loss_1_scene}} | {{loss_1_reason}} |
-| {{loss_2_metric}} | {{loss_2_orig}} | {{loss_2_quant}} | {{loss_2_loss}} | {{loss_2_scene}} | {{loss_2_reason}} |
+| 边缘场景 | 标准场景指标 | 边缘场景指标 |   性能变化 | 泛化表现   |
+| ---- | -----: | -----: | -----: | ------ |
+| 不同光照 | {{gen_light_std}} | {{gen_light_edge}} | {{gen_light_delta}} | {{gen_light_perf}} |
+| 不同角度 | {{gen_angle_std}} | {{gen_angle_edge}} | {{gen_angle_delta}} | {{gen_angle_perf}} |
 
 **分析：**
 
-{{ana_63=\[填写量化过程中出现精度损失的具体表现及原因。]}}
+{{ana_63=\[填写模型在真实边缘场景下的泛化表现。]}}
 
 ## 6.4 推理性能分析
 
@@ -53,18 +53,7 @@ _TEMPLATE = r"""# 6. 评测结果对比与分析
 | GPU/NPU利用率 | {{perf_npu}} | {{perf_npu_analysis}} |
 | 内存占用       | {{perf_mem}} | {{perf_mem_analysis}} |
 
-## 6.5 边缘场景泛化表现分析
-
-| 边缘场景 | 标准场景指标 | 边缘场景指标 |   性能变化 | 泛化表现   |
-| ---- | -----: | -----: | -----: | ------ |
-| 不同光照 | {{gen_light_std}} | {{gen_light_edge}} | {{gen_light_delta}} | {{gen_light_perf}} |
-| 不同角度 | {{gen_angle_std}} | {{gen_angle_edge}} | {{gen_angle_delta}} | {{gen_angle_perf}} |
-
-**分析：**
-
-{{ana_65=\[填写模型在真实边缘场景下的泛化表现。]}}
-
-## 6.6 性能瓶颈分析
+## 6.5 性能瓶颈分析
 
 | 瓶颈环节 |     耗时 |     占比 | 问题描述   | 可能原因   |
 | ---- | -----: | -----: | ------ | ------ |
@@ -76,7 +65,7 @@ _TEMPLATE = r"""# 6. 评测结果对比与分析
 
 **性能瓶颈结论：**
 
-{{ana_66=\[填写主要性能瓶颈及影响。]}}"""
+{{ana_65=\[填写主要性能瓶颈及影响。]}}"""
 
 
 @dataclass
@@ -123,19 +112,15 @@ class AnalysisSection:
     sc6_05_delta: str = ""  # 场景5-指标变化
     sc6_05_ok: str = ""  # 场景5-是否达标
 
-    # 6.3 精度损失分析
-    loss_1_metric: str = ""  # 第1行-指标
-    loss_1_orig: str = ""  # 第1行-原始模型
-    loss_1_quant: str = ""  # 第1行-量化模型
-    loss_1_loss: str = ""  # 第1行-精度损失
-    loss_1_scene: str = ""  # 第1行-主要影响场景
-    loss_1_reason: str = ""  # 第1行-原因分析
-    loss_2_metric: str = ""  # 第2行-指标
-    loss_2_orig: str = ""  # 第2行-原始模型
-    loss_2_quant: str = ""  # 第2行-量化模型
-    loss_2_loss: str = ""  # 第2行-精度损失
-    loss_2_scene: str = ""  # 第2行-主要影响场景
-    loss_2_reason: str = ""  # 第2行-原因分析
+    # 6.3 边缘场景泛化表现分析
+    gen_light_std: str = ""  # 不同光照-标准场景指标
+    gen_light_edge: str = ""  # 不同光照-边缘场景指标
+    gen_light_delta: str = ""  # 不同光照-性能变化
+    gen_light_perf: str = ""  # 不同光照-泛化表现
+    gen_angle_std: str = ""  # 不同角度-标准场景指标
+    gen_angle_edge: str = ""  # 不同角度-边缘场景指标
+    gen_angle_delta: str = ""  # 不同角度-性能变化
+    gen_angle_perf: str = ""  # 不同角度-泛化表现
     ana_63: str = ""  # 6.3 分析正文
 
     # 6.4 推理性能分析
@@ -156,18 +141,7 @@ class AnalysisSection:
     perf_mem: str = ""  # 内存占用-测试结果
     perf_mem_analysis: str = ""  # 内存占用-分析
 
-    # 6.5 边缘场景泛化表现分析
-    gen_light_std: str = ""  # 不同光照-标准场景指标
-    gen_light_edge: str = ""  # 不同光照-边缘场景指标
-    gen_light_delta: str = ""  # 不同光照-性能变化
-    gen_light_perf: str = ""  # 不同光照-泛化表现
-    gen_angle_std: str = ""  # 不同角度-标准场景指标
-    gen_angle_edge: str = ""  # 不同角度-边缘场景指标
-    gen_angle_delta: str = ""  # 不同角度-性能变化
-    gen_angle_perf: str = ""  # 不同角度-泛化表现
-    ana_65: str = ""  # 6.5 分析正文
-
-    # 6.6 性能瓶颈分析
+    # 6.5 性能瓶颈分析
     bn_pre_time: str = ""  # 预处理-耗时
     bn_pre_ratio: str = ""  # 预处理-占比
     bn_pre_desc: str = ""  # 预处理-问题描述
@@ -188,7 +162,7 @@ class AnalysisSection:
     bn_other_ratio: str = ""  # 其他-占比
     bn_other_desc: str = ""  # 其他-问题描述
     bn_other_reason: str = ""  # 其他-可能原因
-    ana_66: str = ""  # 性能瓶颈结论正文
+    ana_65: str = ""  # 6.5 性能瓶颈结论正文
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""
