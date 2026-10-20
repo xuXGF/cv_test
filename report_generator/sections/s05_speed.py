@@ -35,11 +35,11 @@ _TEMPLATE = r"""# 5. 推理速度评测
 
 ## 5.4 推理性能测试结果
 
-| 测试条件           | 平均耗时(ms) |    FPS | CPU利用率 | GPU/NPU利用率 |   内存占用 |
+| 测试条件           | 耗时(ms) |    FPS | CPU利用率 | GPU/NPU利用率 |   内存占用 |
 | -------------- | -------: | -----: | -----: | ---------: | -----: |
 | Batch Size = 1 |   {{bs1_latency}} | {{bs1_fps}} | {{bs1_cpu}} |     {{bs1_npu}} | {{bs1_mem}} |
-| Batch Size = 2 |   {{bs2_latency}} | {{bs2_fps}} | {{bs2_cpu}} |     {{bs2_npu}} | {{bs2_mem}} |
-| Batch Size = 4 |   {{bs4_latency}} | {{bs4_fps}} | {{bs4_cpu}} |     {{bs4_npu}} | {{bs4_mem}} |"""
+| Batch Size = 4 |   {{bs4_latency}} | {{bs4_fps}} | {{bs4_cpu}} |     {{bs4_npu}} | {{bs4_mem}} |
+| Batch Size = 8 |   {{bs8_latency}} | {{bs8_fps}} | {{bs8_cpu}} |     {{bs8_npu}} | {{bs8_mem}} |"""
 
 
 @dataclass
@@ -76,16 +76,16 @@ class SpeedSection:
     bs1_cpu: str = ""  # Batch Size=1-CPU利用率
     bs1_npu: str = ""  # Batch Size=1-GPU/NPU利用率
     bs1_mem: str = ""  # Batch Size=1-内存占用
-    bs2_latency: str = ""  # Batch Size=2-平均耗时(ms)
-    bs2_fps: str = ""  # Batch Size=2-FPS
-    bs2_cpu: str = ""  # Batch Size=2-CPU利用率
-    bs2_npu: str = ""  # Batch Size=2-GPU/NPU利用率
-    bs2_mem: str = ""  # Batch Size=2-内存占用
     bs4_latency: str = ""  # Batch Size=4-平均耗时(ms)
     bs4_fps: str = ""  # Batch Size=4-FPS
     bs4_cpu: str = ""  # Batch Size=4-CPU利用率
     bs4_npu: str = ""  # Batch Size=4-GPU/NPU利用率
     bs4_mem: str = ""  # Batch Size=4-内存占用
+    bs8_latency: str = ""  # Batch Size=8-平均耗时(ms)
+    bs8_fps: str = ""  # Batch Size=8-FPS
+    bs8_cpu: str = ""  # Batch Size=8-CPU利用率
+    bs8_npu: str = ""  # Batch Size=8-GPU/NPU利用率
+    bs8_mem: str = ""  # Batch Size=8-内存占用
 
     def fill_cloud_ratios(self) -> None:
         """5.3 云端各阶段耗时占比：由 5.2 手填耗时计算，不手填。

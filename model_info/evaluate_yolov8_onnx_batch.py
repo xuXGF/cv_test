@@ -34,7 +34,7 @@ from evaluate_yolov8_onnx_manual import (
     preprocess,
 )
 
-BATCH_SIZES = (1, 2, 4)
+BATCH_SIZES = (1, 4, 8)
 
 
 # ============================================================
@@ -42,27 +42,30 @@ BATCH_SIZES = (1, 2, 4)
 # ============================================================
 
 class ResourceMonitor:
-    """测试期间后台采样 CPU / 内存 / GPU 利用率，stop 时返回均值。
+    """测试期间后台采样本进程 CPU / 内存占用与 GPU 利用率，stop 时返回均值。
 
-    GPU 采样按平台选择：
-    - NVIDIA：pynvml
-    - macOS：ioreg 读取 Apple GPU 的 Device Utilization %
-    - 其他平台 / 采集失败：返回 None，对应字段留空，不填虚假值
+    - CPU / 内存：仅统计本测试进程（CPU 按核数归一化到 0-100%）
+    - GPU 采样按平台选择（只能取设备级利用率，无法按进程拆分）：
+      NVIDIA：pynvml；macOS：ioreg 读取 Apple GPU 的 Device Utilization %
+      其他平台 / 采集失败：返回 None，对应字段留空，不填虚假值
     """
 
     SAMPLE_INTERVAL_S = 0.2
+    # GPU 采样需 spawn ioreg 子进程，开销大；降频避免与推理争抢 CPU 干扰计时
+    GPU_SAMPLE_EVERY_N = 10
 
-    def __init__(self):
+    def __init__(self, sample_gpu: bool = True):
         self._stop_event = threading.Event()
         self._thread = None
+        self._process = psutil.Process()
         self._cpu: list[float] = []
         self._mem: list[float] = []
         self._gpu: list[float] = []
         self._gpu_sampler: Callable[[], float | None] | None = (
-            self._make_gpu_sampler()
+            self._make_gpu_sampler() if sample_gpu else None
         )
         # psutil 首次调用仅建立基线，返回值忽略
-        psutil.cpu_percent(interval=None)
+        self._process.cpu_percent(interval=None)
 
     @staticmethod
     def _make_gpu_sampler() -> Callable[[], float | None] | None:
@@ -110,13 +113,21 @@ class ResourceMonitor:
         self._thread.start()
 
     def _loop(self) -> None:
+        round_idx = 0
         while not self._stop_event.is_set():
-            self._cpu.append(psutil.cpu_percent(interval=None))
-            self._mem.append(psutil.virtual_memory().percent)
-            if self._gpu_sampler is not None:
+            # 进程 CPU 占用：cpu_percent 为单核口径（多线程可超 100%），
+            # 除以核数归一化为整机 0-100%
+            proc_cpu = self._process.cpu_percent(interval=None)
+            self._cpu.append(proc_cpu / psutil.cpu_count())
+            self._mem.append(self._process.memory_percent())
+            if (
+                self._gpu_sampler is not None
+                and round_idx % self.GPU_SAMPLE_EVERY_N == 0
+            ):
                 value = self._gpu_sampler()
                 if value is not None:
                     self._gpu.append(value)
+            round_idx += 1
             self._stop_event.wait(self.SAMPLE_INTERVAL_S)
 
     @staticmethod
@@ -210,6 +221,7 @@ def benchmark_batch_size(
     batch_size: int,
     dynamic_batch: bool,
     warmup_batches: int = 3,
+    sample_gpu: bool = True,
 ) -> dict:
     """测量指定 batch size 的耗时 / 吞吐 / 资源占用。
 
@@ -229,7 +241,7 @@ def benchmark_batch_size(
     for group in groups[:warmup_batches]:
         run_one_batch(evaluator, group, dynamic_batch)
 
-    monitor = ResourceMonitor()
+    monitor = ResourceMonitor(sample_gpu=sample_gpu)
     monitor.start()
     batch_times_ms = []
     try:
@@ -241,11 +253,10 @@ def benchmark_batch_size(
         usage = monitor.stop()
 
     per_batch_ms = statistics.fmean(batch_times_ms)
-    per_image_ms = per_batch_ms
 
     return {
-        "latency": f"{per_image_ms:.3f}",
-        "fps": f"{1000.0 / per_image_ms:.2f}",
+        "latency": f"{per_batch_ms:.3f}",
+        "fps": f"{batch_size / (per_batch_ms / 1000.0):.2f}",
         "cpu": f"{usage['cpu']}%" if usage["cpu"] is not None else "",
         "npu": f"{usage['gpu']}%" if usage["gpu"] is not None else "",
         "mem": f"{usage['mem']}%" if usage["mem"] is not None else "",
@@ -290,6 +301,12 @@ def main() -> None:
     dynamic_batch = is_dynamic_batch(evaluator)
     print(f"模型是否支持动态 batch：{dynamic_batch}")
 
+    # 模型跑在 CPU 上时 GPU 利用率无意义（只会采到系统其他进程的占用），不采样
+    sample_gpu = any(
+        p != "CPUExecutionProvider" for p in evaluator.providers
+    )
+    print(f"是否采样 GPU 利用率：{sample_gpu}")
+
     images = [
         cv2.imread(str(p))
         for p in list_images(evaluator.images_dir)
@@ -317,6 +334,7 @@ def main() -> None:
             batch_size,
             dynamic_batch,
             warmup_batches=evaluator.warmup_rounds,
+            sample_gpu=sample_gpu,
         )
         prefix = f"bs{batch_size}"
         summary[f"{prefix}_latency"] = result["latency"]
@@ -332,10 +350,12 @@ def main() -> None:
         print(f"内存占用      : {result['mem'] or '（未采集到）'}")
 
     summary["notes"] = [
-        "平均耗时为单张图片平均端到端耗时（单批总耗时 ÷ 批内图片数，"
-        "含预处理+推理+后处理）。",
-        "FPS = 1000 / 平均耗时。",
-        "CPU/内存占用为整机利用率；GPU 利用率取测试期间采样均值；"
+        "平均耗时为单批端到端总耗时（批内全部图片的预处理+推理+后处理）。",
+        "FPS = 批内图片数 / 单批耗时 × 1000，即每秒处理图片数。",
+        "CPU/内存占用为本测试进程占用（CPU 按核数归一化到 0-100%，"
+        "内存为本进程占物理内存比例）。",
+        "GPU 利用率为设备级采样均值，无法按进程拆分；"
+        "模型仅使用 CPU 执行提供者时不采样、留空；"
         "Apple ANE 利用率系统未提供采集接口。",
     ]
 
