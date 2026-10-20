@@ -1,0 +1,14 @@
+{
+    "provider": "ollama",
+    "ollama": {
+        "base_url": "",
+        "model": "",
+        "timeout": 120
+    },
+    "openai": {
+        "base_url": "",
+        "api_key": "",
+        "model": "",
+        "timeout": 120
+    }
+}
