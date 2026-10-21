@@ -20,13 +20,10 @@ _TEMPLATE = r"""# 7. 评测结果判定
 
 ## 7.2 推理性能指标统计
 
-| 指标     |    目标值 |    实测值 | 是否达标   |
-| ------ | -----: | -----: | ------ |
-| 平均推理耗时 | {{v_perf_latency_target}} | {{v_perf_latency_actual}} | {{v_perf_latency_ok}} |
-| FPS    | {{v_perf_fps_target}} | {{v_perf_fps_actual}} | {{v_perf_fps_ok}} |
-| 预处理耗时  | {{v_perf_pre_target}} | {{v_perf_pre_actual}} | {{v_perf_pre_ok}} |
-| 推理耗时   | {{v_perf_infer_target}} | {{v_perf_infer_actual}} | {{v_perf_infer_ok}} |
-| 后处理耗时  | {{v_perf_post_target}} | {{v_perf_post_actual}} | {{v_perf_post_ok}} |
+| 指标           |   云端原始值 |    目标值 |    实测值 | 是否达标   |
+| ------------ | -----: | -----: | -----: | ------ |
+| 端到端耗时(ms) | {{v_latency_cloud}} | {{v_latency_target}} | {{v_latency_actual}} | {{v_latency_ok}} |
+| FPS          | {{v_fps_cloud}} | {{v_fps_target}} | {{v_fps_actual}} | {{v_fps_ok}} |
 
 ## 7.3 精度损失是否满足要求
 
@@ -76,22 +73,17 @@ class VerdictSection:
     v_recall_loss: str = ""  # Recall-精度损失
     v_recall_ok: str = ""  # Recall-是否达标
 
-    # 7.2 推理性能指标统计
-    v_perf_latency_target: str = ""  # 平均推理耗时-目标值
-    v_perf_latency_actual: str = ""  # 平均推理耗时-实测值
-    v_perf_latency_ok: str = ""  # 平均推理耗时-是否达标
-    v_perf_fps_target: str = ""  # FPS-目标值
-    v_perf_fps_actual: str = ""  # FPS-实测值
-    v_perf_fps_ok: str = ""  # FPS-是否达标
-    v_perf_pre_target: str = ""  # 预处理耗时-目标值
-    v_perf_pre_actual: str = ""  # 预处理耗时-实测值
-    v_perf_pre_ok: str = ""  # 预处理耗时-是否达标
-    v_perf_infer_target: str = ""  # 推理耗时-目标值
-    v_perf_infer_actual: str = ""  # 推理耗时-实测值
-    v_perf_infer_ok: str = ""  # 推理耗时-是否达标
-    v_perf_post_target: str = ""  # 后处理耗时-目标值
-    v_perf_post_actual: str = ""  # 后处理耗时-实测值
-    v_perf_post_ok: str = ""  # 后处理耗时-是否达标
+    # 7.2 推理性能指标统计（端到端耗时 / FPS）
+    # 云端原始值来自 local_info.json（speed_cloud_latency），目标值手填，
+    # FPS 与判定由 fill_perf_rows 计算（FPS = 1000 / 端到端耗时）
+    v_latency_cloud: str = ""  # 端到端耗时-云端原始值
+    v_latency_target: str = ""  # 端到端耗时-目标值（手填，上限）
+    v_latency_actual: str = ""  # 端到端耗时-实测值
+    v_latency_ok: str = ""  # 端到端耗时-是否达标
+    v_fps_cloud: str = ""  # FPS-云端原始值
+    v_fps_target: str = ""  # FPS-目标值（手填，下限）
+    v_fps_actual: str = ""  # FPS-实测值
+    v_fps_ok: str = ""  # FPS-是否达标
 
     # 7.3 精度损失是否满足要求
     req_quant_loss: str = ""  # 量化精度损失-要求（未填时默认「例如 <1%」）
@@ -147,6 +139,39 @@ class VerdictSection:
                 f"{loss:.4f}（{pct(loss, cloud, cloud_field)}）",
             )
             setattr(self, f"v_{name}_ok", "是" if edge >= target else "否")
+
+    def fill_perf_rows(self) -> None:
+        """7.2 推理性能指标统计：FPS 与判定由公式计算，不手填。
+
+        目标值（v_latency_target / v_fps_target）为手填字段，
+        取值口径见 local_info.json。输入字段由 run.py 注入：
+        云端端到端耗时（speed_cloud_latency）来自 local_info.json，
+        边缘端端到端耗时（speed_edge_latency）来自 metrics_summary.json。
+
+        FPS = 1000 / 端到端耗时(ms)
+        端到端耗时达标 = 实测值 ≤ 目标值；FPS 达标 = 实测值 ≥ 目标值
+        """
+        cloud_latency = to_float(
+            getattr(self, "speed_cloud_latency", ""), "speed_cloud_latency"
+        )
+        edge_latency = to_float(
+            getattr(self, "speed_edge_latency", ""), "speed_edge_latency"
+        )
+
+        latency_target = to_float(
+            getattr(self, "v_latency_target", ""), "v_latency_target"
+        )
+        fps_target = to_float(
+            getattr(self, "v_fps_target", ""), "v_fps_target"
+        )
+
+        self.v_latency_cloud = f"{cloud_latency:.3f}"
+        self.v_latency_actual = f"{edge_latency:.3f}"
+        self.v_latency_ok = "是" if edge_latency <= latency_target else "否"
+
+        self.v_fps_cloud = f"{1000.0 / cloud_latency:.2f}"
+        self.v_fps_actual = f"{1000.0 / edge_latency:.2f}"
+        self.v_fps_ok = "是" if 1000.0 / edge_latency >= fps_target else "否"
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

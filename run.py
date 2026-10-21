@@ -160,11 +160,12 @@ def build_sample_report() -> TestReport:
     text = (OUTPUT_DIR / "batch_metrics.json").read_text(encoding="utf-8")
     report.speed.__dict__.update(json.loads(text))
 
-    # 第 7 章 7.1：判定输入（云端列/目标值来自 local_info，
-    # 边缘端列来自 metrics_summary.json），实测/损失/达标由公式计算
+    # 第 7 章：判定输入（云端列/目标值来自 local_info，
+    # 边缘端列来自 metrics_summary.json），实测/损失/FPS/达标由公式计算
     report.verdict.__dict__.update(local_info.__dict__)
     report.verdict.__dict__.update(eval_metrics)
     report.verdict.fill_accuracy_rows()
+    report.verdict.fill_perf_rows()
 
     return report
 

@@ -23,6 +23,9 @@
     "v_precision_target": "0.7607",
     "v_recall_target": "0.4950",
 
+    "v_latency_target": "39.619",
+    "v_fps_target": "25.22",
+
     "cmp_map_ok": "是",
 
     "speed_cloud_latency": "38.465",
