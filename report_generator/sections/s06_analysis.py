@@ -44,7 +44,6 @@ _TEMPLATE = r"""# 6. 评测结果对比与分析
 
 | 分析维度       | 测试结果   | 分析     |
 | ---------- | ------ | ------ |
-| 平均推理耗时     | {{perf_avg_latency}} | {{perf_avg_latency_analysis}} |
 | FPS        | {{perf_fps}} | {{perf_fps_analysis}} |
 | 预处理耗时      | {{perf_pre}} | {{perf_pre_analysis}} |
 | 模型推理耗时     | {{perf_infer}} | {{perf_infer_analysis}} |
@@ -53,19 +52,9 @@ _TEMPLATE = r"""# 6. 评测结果对比与分析
 | GPU/NPU利用率 | {{perf_npu}} | {{perf_npu_analysis}} |
 | 内存占用       | {{perf_mem}} | {{perf_mem_analysis}} |
 
-## 6.5 性能瓶颈分析
-
-| 瓶颈环节 |     耗时 |     占比 | 问题描述   | 可能原因   |
-| ---- | -----: | -----: | ------ | ------ |
-| 预处理  | {{bn_pre_time}} | {{bn_pre_ratio}} | {{bn_pre_desc}} | {{bn_pre_reason}} |
-| 模型推理 | {{bn_infer_time}} | {{bn_infer_ratio}} | {{bn_infer_desc}} | {{bn_infer_reason}} |
-| 后处理  | {{bn_post_time}} | {{bn_post_ratio}} | {{bn_post_desc}} | {{bn_post_reason}} |
-| 数据传输 | {{bn_data_time}} | {{bn_data_ratio}} | {{bn_data_desc}} | {{bn_data_reason}} |
-| 其他   | {{bn_other_time}} | {{bn_other_ratio}} | {{bn_other_desc}} | {{bn_other_reason}} |
-
 **性能瓶颈结论：**
 
-{{ana_65=\[填写主要性能瓶颈及影响。]}}"""
+{{ana_64=\[填写主要性能瓶颈及影响。]}}"""
 
 
 @dataclass
@@ -124,8 +113,6 @@ class AnalysisSection:
     ana_63: str = ""  # 6.3 分析正文
 
     # 6.4 推理性能分析
-    perf_avg_latency: str = ""  # 平均推理耗时-测试结果
-    perf_avg_latency_analysis: str = ""  # 平均推理耗时-分析
     perf_fps: str = ""  # FPS-测试结果
     perf_fps_analysis: str = ""  # FPS-分析
     perf_pre: str = ""  # 预处理耗时-测试结果
@@ -141,28 +128,8 @@ class AnalysisSection:
     perf_mem: str = ""  # 内存占用-测试结果
     perf_mem_analysis: str = ""  # 内存占用-分析
 
-    # 6.5 性能瓶颈分析
-    bn_pre_time: str = ""  # 预处理-耗时
-    bn_pre_ratio: str = ""  # 预处理-占比
-    bn_pre_desc: str = ""  # 预处理-问题描述
-    bn_pre_reason: str = ""  # 预处理-可能原因
-    bn_infer_time: str = ""  # 模型推理-耗时
-    bn_infer_ratio: str = ""  # 模型推理-占比
-    bn_infer_desc: str = ""  # 模型推理-问题描述
-    bn_infer_reason: str = ""  # 模型推理-可能原因
-    bn_post_time: str = ""  # 后处理-耗时
-    bn_post_ratio: str = ""  # 后处理-占比
-    bn_post_desc: str = ""  # 后处理-问题描述
-    bn_post_reason: str = ""  # 后处理-可能原因
-    bn_data_time: str = ""  # 数据传输-耗时
-    bn_data_ratio: str = ""  # 数据传输-占比
-    bn_data_desc: str = ""  # 数据传输-问题描述
-    bn_data_reason: str = ""  # 数据传输-可能原因
-    bn_other_time: str = ""  # 其他-耗时
-    bn_other_ratio: str = ""  # 其他-占比
-    bn_other_desc: str = ""  # 其他-问题描述
-    bn_other_reason: str = ""  # 其他-可能原因
-    ana_65: str = ""  # 6.5 性能瓶颈结论正文
+    # 6.4 性能瓶颈结论正文
+    ana_64: str = ""
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

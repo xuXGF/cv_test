@@ -22,10 +22,10 @@ _DOC_HEADER = r"""# {{report_title=\*\*测评报告}}"""
 
 #: 章节顺序
 _SECTION_FIELDS = (
-    # "basic_info",
-    # "dataset",
-    # "config",
-    # "accuracy",
+    "basic_info",
+    "dataset",
+    "config",
+    "accuracy",
     "speed",
     "analysis",
     "verdict",

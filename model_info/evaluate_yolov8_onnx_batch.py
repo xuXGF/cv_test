@@ -2,8 +2,9 @@
 
 复用 evaluate_yolov8_onnx_manual.py 的模型加载与前/后处理，
 对 Batch Size = 1 / 2 / 4 测量：
-- 平均耗时(ms)：单张图片平均端到端耗时（单批总耗时 ÷ 批内图片数）
-- FPS：吞吐 = 1000 / 单张平均耗时
+- 平均耗时(ms)：单批端到端总耗时（预处理+推理+后处理）
+- 分段耗时(ms)：单批内预处理 / 推理 / 后处理各自的平均耗时
+- FPS：吞吐 = 批内图片数 / 单批耗时 × 1000
 - CPU 利用率 / GPU(NPU) 利用率 / 内存占用：测试期间后台采样取均值
 
 模型输入 batch 维固定为 1 时，"单批"按连续单张推理计时；
@@ -178,27 +179,34 @@ def run_one_batch(
     evaluator: YOLOv8ONNXEvaluator,
     images: list[np.ndarray],
     dynamic_batch: bool,
-) -> float:
-    """对一批图片执行端到端推理，返回该批耗时（ms）。
+) -> dict[str, float]:
+    """对一批图片执行端到端推理，返回各阶段耗时（ms）。
 
     动态 batch 时整批一次推理；否则批内连续单张推理。
     与 evaluate_yolov8_onnx_manual 一致，后处理使用低置信度候选。
+    返回键：preprocess / inference / postprocess / total。
     """
     tensors = []
     metas = []
 
-    start = time.perf_counter()
+    batch_start = time.perf_counter()
 
+    start = time.perf_counter()
     for image in images:
         tensor, meta, _ = preprocess(image, evaluator.input_hw)
         tensors.append(tensor)
         metas.append(meta)
+    preprocess_ms = (time.perf_counter() - start) * 1000.0
 
     if dynamic_batch:
+        start = time.perf_counter()
         outputs = evaluator.session.run(
             None,
             {evaluator.input_name: np.concatenate(tensors, axis=0)},
         )
+        inference_ms = (time.perf_counter() - start) * 1000.0
+
+        start = time.perf_counter()
         for i, meta in enumerate(metas):
             decode_output(
                 [out[i:i + 1] for out in outputs],
@@ -207,11 +215,19 @@ def run_one_batch(
                 iou_threshold=evaluator.nms_iou_threshold,
                 max_det=evaluator.max_detections,
             )
+        postprocess_ms = (time.perf_counter() - start) * 1000.0
     else:
+        # 固定 batch=1 时推理与后处理逐张交替执行，逐段累加计时
+        inference_ms = 0.0
+        postprocess_ms = 0.0
         for tensor, meta in zip(tensors, metas):
+            start = time.perf_counter()
             outputs = evaluator.session.run(
                 None, {evaluator.input_name: tensor}
             )
+            inference_ms += (time.perf_counter() - start) * 1000.0
+
+            start = time.perf_counter()
             decode_output(
                 outputs,
                 meta,
@@ -219,8 +235,14 @@ def run_one_batch(
                 iou_threshold=evaluator.nms_iou_threshold,
                 max_det=evaluator.max_detections,
             )
+            postprocess_ms += (time.perf_counter() - start) * 1000.0
 
-    return (time.perf_counter() - start) * 1000.0
+    return {
+        "preprocess": preprocess_ms,
+        "inference": inference_ms,
+        "postprocess": postprocess_ms,
+        "total": (time.perf_counter() - batch_start) * 1000.0,
+    }
 
 
 def benchmark_batch_size(
@@ -252,11 +274,17 @@ def benchmark_batch_size(
     monitor = ResourceMonitor(sample_gpu=sample_gpu)
     monitor.start()
     batch_times_ms = []
+    stage_times: dict[str, list[float]] = {
+        "preprocess": [],
+        "inference": [],
+        "postprocess": [],
+    }
     try:
         for group in groups:
-            batch_times_ms.append(
-                run_one_batch(evaluator, group, dynamic_batch)
-            )
+            timings = run_one_batch(evaluator, group, dynamic_batch)
+            batch_times_ms.append(timings["total"])
+            for stage, values in stage_times.items():
+                values.append(timings[stage])
     finally:
         usage = monitor.stop()
 
@@ -264,6 +292,9 @@ def benchmark_batch_size(
 
     return {
         "latency": f"{per_batch_ms:.3f}",
+        "pre_ms": f"{statistics.fmean(stage_times['preprocess']):.3f}",
+        "infer_ms": f"{statistics.fmean(stage_times['inference']):.3f}",
+        "post_ms": f"{statistics.fmean(stage_times['postprocess']):.3f}",
         "fps": f"{batch_size / (per_batch_ms / 1000.0):.2f}",
         "cpu": f"{usage['cpu']}%" if usage["cpu"] is not None else "",
         "npu": f"{usage['gpu']}%" if usage["gpu"] is not None else "",
@@ -346,12 +377,18 @@ def main() -> None:
         )
         prefix = f"bs{batch_size}"
         summary[f"{prefix}_latency"] = result["latency"]
+        summary[f"{prefix}_pre"] = result["pre_ms"]
+        summary[f"{prefix}_infer"] = result["infer_ms"]
+        summary[f"{prefix}_post"] = result["post_ms"]
         summary[f"{prefix}_fps"] = result["fps"]
         summary[f"{prefix}_cpu"] = result["cpu"]
         summary[f"{prefix}_npu"] = result["npu"]
         summary[f"{prefix}_mem"] = result["mem"]
 
         print(f"单批平均耗时  : {result['latency']} ms")
+        print(f"  预处理耗时  : {result['pre_ms']} ms")
+        print(f"  推理耗时    : {result['infer_ms']} ms")
+        print(f"  后处理耗时  : {result['post_ms']} ms")
         print(f"吞吐 FPS      : {result['fps']}")
         print(f"CPU 利用率    : {result['cpu'] or '（未采集到）'}")
         print(f"GPU/NPU 利用率: {result['npu'] or '（未采集到）'}")
@@ -359,6 +396,8 @@ def main() -> None:
 
     summary["notes"] = [
         "平均耗时为单批端到端总耗时（批内全部图片的预处理+推理+后处理）。",
+        "分段耗时为单批内预处理/推理/后处理各自的平均耗时，"
+        "三者之和约等于平均耗时（差值为计时打点开销）。",
         "FPS = 批内图片数 / 单批耗时 × 1000，即每秒处理图片数。",
         "CPU/内存占用为本测试进程占用（CPU 按核数归一化到 0-100%，"
         "内存为占用的物理内存 RSS，单位 MB/GB）。",
