@@ -1,14 +1,14 @@
 {
     "provider": "ollama",
     "ollama": {
-        "base_url": "",
-        "model": "",
+        "base_url": "http://10.206.23.123:32301",
+        "model": "qwen2.5:32b",
         "timeout": 120
     },
     "openai": {
-        "base_url": "",
-        "api_key": "",
-        "model": "",
+        "base_url": "https://llm-3dvfan059atxshxd.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+        "api_key": "sk-a02ae42b2cf144fbab64fc47de226549",
+        "model": "qwen3.7-flash-2026-07-15",
         "timeout": 120
     }
 }

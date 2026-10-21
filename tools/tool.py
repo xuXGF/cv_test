@@ -41,3 +41,14 @@ def pct(part: float, total: float, label: str = "") -> str:
         return f"{part / total * 100:.1f}%"
     except ZeroDivisionError as exc:
         raise ValueError(f"{label}为 0，无法计算占比") from exc
+
+
+def format_memory(mb: float) -> str:
+    """
+    将内存占用（MB）转为可读字符串：小于 1024 MB 用 MB，否则用 GB
+    :param mb: 内存大小（兆字节）
+    :return: 例 312.4 MB / 1.25 GB
+    """
+    if mb < 1024:
+        return f"{mb:.1f} MB"
+    return f"{mb / 1024:.2f} GB"

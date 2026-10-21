@@ -27,6 +27,11 @@ import cv2
 import numpy as np
 import psutil
 
+# 使脚本在 model_info 目录下直接运行时也能导入项目根目录的 tools 包
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from tools import format_memory
+
 from evaluate_yolov8_onnx_manual import (
     IMAGE_SUFFIXES,
     YOLOv8ONNXEvaluator,
@@ -44,7 +49,8 @@ BATCH_SIZES = (1, 4, 8)
 class ResourceMonitor:
     """测试期间后台采样本进程 CPU / 内存占用与 GPU 利用率，stop 时返回均值。
 
-    - CPU / 内存：仅统计本测试进程（CPU 按核数归一化到 0-100%）
+    - CPU / 内存：仅统计本测试进程（CPU 按核数归一化到 0-100%；
+      内存记录本进程占用的物理内存 RSS，单位 MB）
     - GPU 采样按平台选择（只能取设备级利用率，无法按进程拆分）：
       NVIDIA：pynvml；macOS：ioreg 读取 Apple GPU 的 Device Utilization %
       其他平台 / 采集失败：返回 None，对应字段留空，不填虚假值
@@ -119,7 +125,9 @@ class ResourceMonitor:
             # 除以核数归一化为整机 0-100%
             proc_cpu = self._process.cpu_percent(interval=None)
             self._cpu.append(proc_cpu / psutil.cpu_count())
-            self._mem.append(self._process.memory_percent())
+            self._mem.append(
+                self._process.memory_info().rss / (1024 * 1024)  # MB
+            )
             if (
                 self._gpu_sampler is not None
                 and round_idx % self.GPU_SAMPLE_EVERY_N == 0
@@ -259,7 +267,7 @@ def benchmark_batch_size(
         "fps": f"{batch_size / (per_batch_ms / 1000.0):.2f}",
         "cpu": f"{usage['cpu']}%" if usage["cpu"] is not None else "",
         "npu": f"{usage['gpu']}%" if usage["gpu"] is not None else "",
-        "mem": f"{usage['mem']}%" if usage["mem"] is not None else "",
+        "mem": format_memory(usage["mem"]) if usage["mem"] is not None else "",
         "batch_count": len(groups),
     }
 
@@ -353,7 +361,7 @@ def main() -> None:
         "平均耗时为单批端到端总耗时（批内全部图片的预处理+推理+后处理）。",
         "FPS = 批内图片数 / 单批耗时 × 1000，即每秒处理图片数。",
         "CPU/内存占用为本测试进程占用（CPU 按核数归一化到 0-100%，"
-        "内存为本进程占物理内存比例）。",
+        "内存为占用的物理内存 RSS，单位 MB/GB）。",
         "GPU 利用率为设备级采样均值，无法按进程拆分；"
         "模型仅使用 CPU 执行提供者时不采样、留空；"
         "Apple ANE 利用率系统未提供采集接口。",
