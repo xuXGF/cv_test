@@ -159,8 +159,12 @@ def build_sample_report() -> TestReport:
     # 5.4 Batch Size 性能（evaluate_yolov8_onnx_batch.py 导出，字段名与 s05 对齐）
     text = (OUTPUT_DIR / "batch_metrics.json").read_text(encoding="utf-8")
     report.speed.__dict__.update(json.loads(text))
-           
 
+    # 第 7 章 7.1：判定输入（云端列/目标值来自 local_info，
+    # 边缘端列来自 metrics_summary.json），实测/损失/达标由公式计算
+    report.verdict.__dict__.update(local_info.__dict__)
+    report.verdict.__dict__.update(eval_metrics)
+    report.verdict.fill_accuracy_rows()
 
     return report
 

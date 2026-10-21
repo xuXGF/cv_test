@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
+from tools import pct, to_float
+
 from ..render import render
 
 _TEMPLATE = r"""# 7. 评测结果判定
 
 ## 7.1 精度指标达标情况
 
-| 指标          |    目标值 |    实测值 |   精度损失 | 是否达标   |
-| ----------- | -----: | -----: | -----: | ------ |
-| 主要精度指标      | {{v_acc_main_target}} | {{v_acc_main_actual}} | {{v_acc_main_loss}} | {{v_acc_main_ok}} |
-| Top-1/Top-5 | {{v_top_target}} | {{v_top_actual}} | {{v_top_loss}} | {{v_top_ok}} |
-| mAP         | {{v_map_target}} | {{v_map_actual}} | {{v_map_loss}} | {{v_map_ok}} |
-| IoU/mIoU    | {{v_iou_target}} | {{v_iou_actual}} | {{v_iou_loss}} | {{v_iou_ok}} |
+| 指标       |   云端原始值 |    目标值 |    实测值 |   精度损失 | 是否达标   |
+| -------- | -----: | -----: | -----: | -----: | ------ |
+| mAP\@0.5  | {{v_map05_cloud}} | {{v_map05_target}} | {{v_map05_actual}} | {{v_map05_loss}} | {{v_map05_ok}} |
+| Precision | {{v_precision_cloud}} | {{v_precision_target}} | {{v_precision_actual}} | {{v_precision_loss}} | {{v_precision_ok}} |
+| Recall    | {{v_recall_cloud}} | {{v_recall_target}} | {{v_recall_actual}} | {{v_recall_loss}} | {{v_recall_ok}} |
 
 ## 7.2 推理性能指标统计
 
@@ -56,23 +57,24 @@ _TEMPLATE = r"""# 7. 评测结果判定
 class VerdictSection:
     """第 7 章：评测结果判定。"""
 
-    # 7.1 精度指标达标情况
-    v_acc_main_target: str = ""  # 主要精度指标-目标值
-    v_acc_main_actual: str = ""  # 主要精度指标-实测值
-    v_acc_main_loss: str = ""  # 主要精度指标-精度损失
-    v_acc_main_ok: str = ""  # 主要精度指标-是否达标
-    v_top_target: str = ""  # Top-1/Top-5-目标值
-    v_top_actual: str = ""  # Top-1/Top-5-实测值
-    v_top_loss: str = ""  # Top-1/Top-5-精度损失
-    v_top_ok: str = ""  # Top-1/Top-5-是否达标
-    v_map_target: str = ""  # mAP-目标值
-    v_map_actual: str = ""  # mAP-实测值
-    v_map_loss: str = ""  # mAP-精度损失
-    v_map_ok: str = ""  # mAP-是否达标
-    v_iou_target: str = ""  # IoU/mIoU-目标值
-    v_iou_actual: str = ""  # IoU/mIoU-实测值
-    v_iou_loss: str = ""  # IoU/mIoU-精度损失
-    v_iou_ok: str = ""  # IoU/mIoU-是否达标
+    # 7.1 精度指标达标情况（检测任务：mAP@0.5 / Precision / Recall）
+    # 云端原始值来自 local_info.json（det_cloud_*），目标值手填（v_*_target），
+    # 全部展示列由 fill_accuracy_rows 计算/回填
+    v_map05_cloud: str = ""  # mAP@0.5-云端原始值
+    v_map05_target: str = ""  # mAP@0.5-目标值（手填）
+    v_map05_actual: str = ""  # mAP@0.5-实测值
+    v_map05_loss: str = ""  # mAP@0.5-精度损失
+    v_map05_ok: str = ""  # mAP@0.5-是否达标
+    v_precision_cloud: str = ""  # Precision-云端原始值
+    v_precision_target: str = ""  # Precision-目标值
+    v_precision_actual: str = ""  # Precision-实测值
+    v_precision_loss: str = ""  # Precision-精度损失
+    v_precision_ok: str = ""  # Precision-是否达标
+    v_recall_cloud: str = ""  # Recall-云端原始值
+    v_recall_target: str = ""  # Recall-目标值
+    v_recall_actual: str = ""  # Recall-实测值
+    v_recall_loss: str = ""  # Recall-精度损失
+    v_recall_ok: str = ""  # Recall-是否达标
 
     # 7.2 推理性能指标统计
     v_perf_latency_target: str = ""  # 平均推理耗时-目标值
@@ -109,6 +111,42 @@ class VerdictSection:
     verdict_generalization: str = ""  # 边缘场景泛化（未填时默认「\[满足/不满足要求]」）
     verdict_overall: str = ""  # 综合判定（未填时默认「\[通过/需优化]」）
     ana_74: str = ""  # 判定说明正文
+
+    def fill_accuracy_rows(self) -> None:
+        """7.1 检测精度达标情况：云端原始值/实测值/损失/判定由公式计算，不手填。
+
+        目标值（v_*_target）为手填字段，取值口径见 local_info.json。
+        输入字段由 run.py 注入：云端列（det_cloud_*）来自 local_info.json，
+        边缘端列（det_edge_*）来自 metrics_summary.json。
+
+        云端原始值 = local_info.json 中云端原始模型指标
+        实测值 = 边缘端量化模型指标
+        精度损失 = 云端原始模型指标 - 边缘端量化模型指标，
+                   括号内为相对损失 = 精度损失 / 云端原始模型指标 × 100%
+        是否达标 = 实测值 ≥ 目标值
+        """
+        rows = (
+            ("map05", "det_cloud_map05", "det_edge_map05"),
+            ("precision", "det_cloud_precision", "det_edge_precision"),
+            ("recall", "det_cloud_recall", "det_edge_recall"),
+        )
+
+        for name, cloud_field, edge_field in rows:
+            target = to_float(
+                getattr(self, f"v_{name}_target", ""), f"v_{name}_target"
+            )
+            cloud = to_float(getattr(self, cloud_field, ""), cloud_field)
+            edge = to_float(getattr(self, edge_field, ""), edge_field)
+
+            loss = cloud - edge
+            setattr(self, f"v_{name}_cloud", f"{cloud:.4f}")
+            setattr(self, f"v_{name}_actual", f"{edge:.4f}")
+            setattr(
+                self,
+                f"v_{name}_loss",
+                f"{loss:.4f}（{pct(loss, cloud, cloud_field)}）",
+            )
+            setattr(self, f"v_{name}_ok", "是" if edge >= target else "否")
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

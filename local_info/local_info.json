@@ -19,6 +19,10 @@
     "det_cloud_recall": "0.5103",
     "det_cloud_samples": "128",
 
+    "v_map05_target": "0.6044",
+    "v_precision_target": "0.7607",
+    "v_recall_target": "0.4950",
+
     "cmp_map_ok": "是",
 
     "speed_cloud_latency": "38.465",
