@@ -21,9 +21,10 @@
 from __future__ import annotations
 
 import ast
+import json
 import platform
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import onnxruntime as ort
@@ -313,3 +314,14 @@ def collect_model_info(model_path: str | Path | None = None) -> ModelInfo:
         providers=", ".join(session.get_providers()),
         python_version=platform.python_version(),
     )
+
+
+def save_model_info(info: ModelInfo, path: str | Path) -> Path:
+    """将 ``ModelInfo`` 写为 JSON 文件，返回文件路径。"""
+    json_path = Path(path)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(
+        json.dumps(asdict(info), ensure_ascii=False, indent=4) + "\n",
+        encoding="utf-8",
+    )
+    return json_path

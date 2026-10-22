@@ -20,15 +20,18 @@
 
 from __future__ import annotations
 
+import json
 import platform
 import socket
 import sys
+from dataclasses import asdict
+from pathlib import Path
 
 from .darwin import collect as _collect_darwin
 from .linux import collect as _collect_linux
 from .model import DeviceInfo
 
-__all__ = ["DeviceInfo", "collect_device_info"]
+__all__ = ["DeviceInfo", "collect_device_info", "save_device_info"]
 
 
 def collect_device_info() -> DeviceInfo:
@@ -42,3 +45,14 @@ def collect_device_info() -> DeviceInfo:
         device_name=socket.gethostname(),
         os=platform.platform(),
     )
+
+
+def save_device_info(info: DeviceInfo, path: str | Path) -> Path:
+    """将 ``DeviceInfo`` 写为 JSON 文件，返回文件路径。"""
+    json_path = Path(path)
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    json_path.write_text(
+        json.dumps(asdict(info), ensure_ascii=False, indent=4) + "\n",
+        encoding="utf-8",
+    )
+    return json_path

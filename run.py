@@ -13,11 +13,11 @@ from local_info import load_local_info
 local_info = load_local_info()
 
 
-from device_info import collect_device_info
+from device_info import collect_device_info, save_device_info
 device_info =  collect_device_info()
 
 
-from model_info import collect_model_info, load_session, benchmark
+from model_info import collect_model_info, load_session, benchmark, save_model_info
 
 model_info = collect_model_info()  # 缺省使用包内自带 yolov8n.onnx
 
@@ -135,6 +135,10 @@ def build_sample_report() -> TestReport:
 
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 采集结果落盘，便于追溯报告 1.2/1.3 字段来源
+    save_model_info(model_info, OUTPUT_DIR / "model_info.json")
+    save_device_info(device_info, OUTPUT_DIR / "device_info.json")
 
     # empty_path = build_empty_report().save(OUTPUT_DIR / "report_empty.md")
     sample_path = build_sample_report().save(OUTPUT_DIR / "report_sample.md")

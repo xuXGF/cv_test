@@ -31,6 +31,7 @@ from .info import (
     collect_model_info,
     default_model_path,
     default_test_image_path,
+    save_model_info,
 )
 from .yolov8_onnx_infer import (
     BenchmarkResult,
@@ -46,6 +47,7 @@ __all__ = [
     "collect_model_info",
     "default_model_path",
     "default_test_image_path",
+    "save_model_info",
     "BenchmarkResult",
     "StageTimings",
     "benchmark",
