@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 
-from tools import pct, to_float
-
 from ..render import render
 
 _TEMPLATE = r"""# 4. 算法精度评测
@@ -48,20 +46,7 @@ _TEMPLATE = r"""# 4. 算法精度评测
 | 模型      |    IoU |   mIoU | Pixel Accuracy |  测试样本数 |
 | ------- | -----: | -----: | -------------: | -----: |
 | 云端原始模型  | {{seg_cloud_iou}} | {{seg_cloud_miou}} |         {{seg_cloud_pixel_acc}} | {{seg_cloud_samples}} |
-| 边缘端量化模型 | {{seg_edge_iou}} | {{seg_edge_miou}} |         {{seg_edge_pixel_acc}} | {{seg_edge_samples}} |
-
-## 4.5 云端原始模型与边缘端量化模型精度对比
-
-| 评测指标     | 云端原始模型 | 边缘端量化模型 |   精度损失 |   相对损失 | 是否满足要求 |
-| -------- | -----: | ------: | -----: | -----: | ------ |
-| Top-1    | {{cmp_top1_cloud}} |  {{cmp_top1_edge}} | {{cmp_top1_loss}} | {{cmp_top1_rel_loss}} | {{cmp_top1_ok}} |
-| Top-5    | {{cmp_top5_cloud}} |  {{cmp_top5_edge}} | {{cmp_top5_loss}} | {{cmp_top5_rel_loss}} | {{cmp_top5_ok}} |
-| mAP      | {{cmp_map_cloud}} |  {{cmp_map_edge}} | {{cmp_map_loss}} | {{cmp_map_rel_loss}} | {{cmp_map_ok}} |
-| IoU/mIoU | {{cmp_iou_cloud}} |  {{cmp_iou_edge}} | {{cmp_iou_loss}} | {{cmp_iou_rel_loss}} | {{cmp_iou_ok}} |
-
-> 精度损失 = 云端原始模型指标 - 边缘端量化模型指标
->
-> 相对损失 = 精度损失 / 云端原始模型指标 × 100%"""
+| 边缘端量化模型 | {{seg_edge_iou}} | {{seg_edge_miou}} |         {{seg_edge_pixel_acc}} | {{seg_edge_samples}} |"""
 
 
 @dataclass
@@ -111,41 +96,6 @@ class AccuracySection:
     seg_edge_miou: str = ""  # 边缘端量化模型-mIoU
     seg_edge_pixel_acc: str = ""  # 边缘端量化模型-Pixel Accuracy
     seg_edge_samples: str = ""  # 边缘端量化模型-测试样本数
-
-    # 4.5 精度对比
-    cmp_top1_cloud: str = ""  # Top-1-云端原始模型
-    cmp_top1_edge: str = ""  # Top-1-边缘端量化模型
-    cmp_top1_loss: str = ""  # Top-1-精度损失
-    cmp_top1_rel_loss: str = ""  # Top-1-相对损失
-    cmp_top1_ok: str = ""  # Top-1-是否满足要求
-    cmp_top5_cloud: str = ""  # Top-5-云端原始模型
-    cmp_top5_edge: str = ""  # Top-5-边缘端量化模型
-    cmp_top5_loss: str = ""  # Top-5-精度损失
-    cmp_top5_rel_loss: str = ""  # Top-5-相对损失
-    cmp_top5_ok: str = ""  # Top-5-是否满足要求
-    cmp_map_cloud: str = ""  # mAP-云端原始模型
-    cmp_map_edge: str = ""  # mAP-边缘端量化模型
-    cmp_map_loss: str = ""  # mAP-精度损失
-    cmp_map_rel_loss: str = ""  # mAP-相对损失
-    cmp_map_ok: str = ""  # mAP-是否满足要求
-    cmp_iou_cloud: str = ""  # IoU/mIoU-云端原始模型
-    cmp_iou_edge: str = ""  # IoU/mIoU-边缘端量化模型
-    cmp_iou_loss: str = ""  # IoU/mIoU-精度损失
-    cmp_iou_rel_loss: str = ""  # IoU/mIoU-相对损失
-    cmp_iou_ok: str = ""  # IoU/mIoU-是否满足要求
-
-    def fill_map_comparison(self) -> None:
-        """4.5 mAP 对比行：由 4.3 的 mAP@0.5 计算损失与相对损失，不手填。
-
-        精度损失 = 云端原始模型指标 - 边缘端量化模型指标
-        相对损失 = 精度损失 / 云端原始模型指标 × 100%
-        """
-        cloud = to_float(self.det_cloud_map05, "det_cloud_map05")
-        edge = to_float(self.det_edge_map05, "det_edge_map05")
-        self.cmp_map_cloud = f"{cloud:.4f}"
-        self.cmp_map_edge = f"{edge:.4f}"
-        self.cmp_map_loss = f"{cloud - edge:.4f}"
-        self.cmp_map_rel_loss = pct(cloud - edge, cloud, "det_cloud_map05")
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

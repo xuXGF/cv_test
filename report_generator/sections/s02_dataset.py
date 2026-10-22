@@ -3,8 +3,33 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from tools import pct
 
 from ..render import render
+
+#: 计入数据量的图片扩展名
+_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
+
+#: 项目根目录（sections -> report_generator -> 项目根），用于解析场景相对路径
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _count_images(scene_dir: Path) -> int:
+    """统计场景目录下的图片张数。
+
+    标准布局为 ``<场景目录>/images/``；不存在该子目录时统计场景目录本身。
+    目录不存在时抛出带路径的异常，不做静默兜底。
+    """
+    image_dir = scene_dir / "images" if (scene_dir / "images").is_dir() else scene_dir
+    if not image_dir.is_dir():
+        raise FileNotFoundError(f"2.2 边缘场景目录不存在: {scene_dir}")
+    return sum(
+        1 for f in image_dir.iterdir()
+        if f.is_file() and f.suffix.lower() in _IMAGE_SUFFIXES
+    )
+
 
 _TEMPLATE = r"""# 2. 测试数据集说明
 
@@ -28,12 +53,7 @@ _TEMPLATE = r"""# 2. 测试数据集说明
 
 | 场景编号 | 测试场景    | 场景描述   |    数据量 |     占比 |
 | ---- | ------- | ------ | -----: | -----: |
-| 01   | **场景1** | {{scenario_01_desc}} | {{scenario_01_count}} | {{scenario_01_ratio}} |
-| 02   | **场景2** | {{scenario_02_desc}} | {{scenario_02_count}} | {{scenario_02_ratio}} |
-| 03   | **场景3** | {{scenario_03_desc}} | {{scenario_03_count}} | {{scenario_03_ratio}} |
-| 04   | **场景4** | {{scenario_04_desc}} | {{scenario_04_count}} | {{scenario_04_ratio}} |
-| 05   | **场景6** | {{scenario_05_desc}} | {{scenario_05_count}} | {{scenario_05_ratio}} |
-| 06   | **场景6** | {{scenario_06_desc}} | {{scenario_06_count}} | {{scenario_06_ratio}} |
+{{scene_rows}}
 
 ## 2.3 数据预处理及标准化
 
@@ -61,25 +81,8 @@ class DatasetSection:
     data_resolution: str = ""  # 数据分辨率
     data_format: str = ""  # 数据格式
 
-    # 2.2 边缘场景数据
-    scenario_01_desc: str = ""  # 场景1-场景描述
-    scenario_01_count: str = ""  # 场景1-数据量
-    scenario_01_ratio: str = ""  # 场景1-占比
-    scenario_02_desc: str = ""  # 场景2-场景描述
-    scenario_02_count: str = ""  # 场景2-数据量
-    scenario_02_ratio: str = ""  # 场景2-占比
-    scenario_03_desc: str = ""  # 场景3-场景描述
-    scenario_03_count: str = ""  # 场景3-数据量
-    scenario_03_ratio: str = ""  # 场景3-占比
-    scenario_04_desc: str = ""  # 场景4-场景描述
-    scenario_04_count: str = ""  # 场景4-数据量
-    scenario_04_ratio: str = ""  # 场景4-占比
-    scenario_05_desc: str = ""  # 场景5-场景描述
-    scenario_05_count: str = ""  # 场景5-数据量
-    scenario_05_ratio: str = ""  # 场景5-占比
-    scenario_06_desc: str = ""  # 场景6-场景描述
-    scenario_06_count: str = ""  # 场景6-数据量
-    scenario_06_ratio: str = ""  # 场景6-占比
+    # 2.2 边缘场景数据（由 fill_scenarios 按 local_info.scene 循环生成，不手填）
+    scene_rows: str = ""  # 场景表格行（每行：编号/场景/描述/数据量/占比）
 
     # 2.3 数据预处理及标准化
     pre_orig_format: str = ""  # 数据格式转换-原始数据
@@ -97,6 +100,47 @@ class DatasetSection:
     pre_orig_anomaly: str = ""  # 异常数据处理-原始数据
     pre_method_anomaly: str = ""  # 异常数据处理-标准化处理方式
     pre_result_anomaly: str = ""  # 异常数据处理-处理结果
+
+    def fill_scenarios(self) -> None:
+        """2.2 边缘场景：按 ``local_info.scene`` 的 path/desc 列表循环生成表格行。
+
+        场景地址与描述由 ``local_info.json`` 的 ``scene`` 字段手动填写，
+        ``scene.path`` 与 ``scene.desc`` 按下标一一对应；数据量为场景目录下
+        图片张数（相对路径基于项目根），占比 = 场景数据量 / 测试数据量（2.1 节）。
+        未配置场景时表格为空。
+        """
+        scene = getattr(self, "scene", None)
+        if scene is None:
+            return
+        if not isinstance(scene, dict):
+            raise TypeError(
+                f"local_info 的 scene 应为对象（含 path/desc 列表），实际为: {type(scene).__name__}"
+            )
+        paths = scene.get("path", [])
+        descs = scene.get("desc", [])
+        if not isinstance(paths, list) or not isinstance(descs, list):
+            raise TypeError("scene.path 与 scene.desc 应为列表")
+        if len(paths) != len(descs):
+            raise ValueError(f"scene.path 与 scene.desc 数量不一致: {len(paths)} != {len(descs)}")
+        if not paths:
+            return
+
+        try:
+            total = int(self.test_data_count)
+        except ValueError as exc:
+            raise ValueError(
+                f"计算 2.2 边缘场景占比需要测试数据量为整数，实际为: {self.test_data_count!r}"
+            ) from exc
+
+        rows: list[str] = []
+        for i, (path, desc) in enumerate(zip(paths, descs), start=1):
+            scene_dir = Path(path)
+            if not scene_dir.is_absolute():
+                scene_dir = _PROJECT_ROOT / scene_dir
+            count = _count_images(scene_dir)
+            ratio = pct(count, total, f"场景{i}占比")
+            rows.append(f"| {i:02d} | **场景{i}** | {desc} | {count} | {ratio} |")
+        self.scene_rows = "\n".join(rows)
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

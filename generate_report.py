@@ -48,12 +48,6 @@ def build_sample_report() -> TestReport:
     # report.speed.speed_edge_latency = "12.5"
     # report.speed.speed_edge_fps = "80"
 
-    # report.accuracy.cmp_map_cloud = "0.812"
-    # report.accuracy.cmp_map_edge = "0.805"
-    # report.accuracy.cmp_map_loss = "0.007"
-    # report.accuracy.cmp_map_rel_loss = "0.86%"
-    # report.accuracy.cmp_map_ok = "是"
-
     # report.verdict.verdict_overall = "通过"
     return report
 

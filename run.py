@@ -133,6 +133,7 @@ def build_sample_report() -> TestReport:
     report.dataset.__dict__.update(model_info.__dict__)
     report.dataset.__dict__.update(dataset_info.__dict__)  # 2.1 基本信息 / 2.3 标签格式转换
     report.dataset.__dict__.update(local_info.__dict__)    # 手填字段：数据集名称/来源/类型、2.2 边缘场景
+    report.dataset.fill_scenarios()                        # 2.2 数据量/占比：由场景地址自动统计，不手填
 
     # 第 3 章：测试配置
     # 合并顺序即优先级（后者覆盖前者）：边缘端量化模型（ONNX 实测） -> 本地手填
@@ -148,8 +149,6 @@ def build_sample_report() -> TestReport:
     eval_metrics = json.loads(text)
     report.accuracy.__dict__.update(local_info.__dict__)
     report.accuracy.__dict__.update(eval_metrics)
-    # 4.5 mAP 对比行：由 4.3 数据计算损失/相对损失，不手填
-    report.accuracy.fill_map_comparison()
 
     # 5.1-5.3 边缘端列
     report.speed.__dict__.update(local_info.__dict__)

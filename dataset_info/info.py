@@ -11,8 +11,9 @@
 
 说明：
 
-* 边缘场景数据（2.2）由使用者通过本地文件（``local_info.json``）
-  手动填写，本模块不采集、不输出场景字段。
+* 边缘场景数据（2.2）不由本模块采集：场景地址与场景描述通过
+  ``local_info.json`` 手动填写，数据量与占比由
+  ``DatasetSection.fill_scenarios`` 按地址自动统计计算。
 * 数据来源等无法自动判断的字段保持空字符串，不自动填入虚假值。
 * ``num_classes`` 为标注中实际出现的类别 id 数；若数据集定义了更多
   类别（存在空类别），请通过 ``local_info.json`` 手动覆盖。
@@ -60,7 +61,8 @@ def default_dataset_path() -> Path:
 class DatasetInfo:
     """数据集元信息，字段与报告第 2 章「测试数据集说明」对应。
 
-    不含 2.2 节边缘场景字段——该部分由 ``local_info.json`` 手动填写。
+    不含 2.2 节边缘场景字段——场景地址/描述由 ``local_info.json``
+    手动填写，数据量与占比由 ``DatasetSection.fill_scenarios`` 计算。
     """
 
     # 2.1 数据集基本信息
