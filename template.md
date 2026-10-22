@@ -351,21 +351,22 @@
 
 ## 9.3 评测脚本输出数据
 
-| 文件名称   | 输出内容   | 数据格式     | 脚本版本   | 文件路径   |
-| ------ | ------ | -------- | ------ | ------ |
-| <br /> | 精度评测结果 | CSV/JSON | <br /> | <br /> |
-| <br /> | 性能评测结果 | CSV/JSON | <br /> | <br /> |
-| <br /> | 场景评测结果 | CSV/JSON | <br /> | <br /> |
-| <br /> | 综合评测结果 | CSV/JSON | <br /> | <br /> |
+| 文件名称   | 输出内容   | 数据格式     | 文件路径   |
+| ------ | ------ | -------- | ------ |
+| 整体指标汇总 | 边缘端精度与速度指标汇总（mAP、Precision、Recall、端侧延迟、FPS 及各阶段耗时占比） | JSON | output/metrics_summary.json |
+| 逐类别精度明细 | 精度评测逐类别明细（各类别的精确率、召回率、F1、AP50、AP50:95） | CSV | output/per_class_metrics.csv |
+| 逐图耗时明细 | 性能评测逐图耗时明细（每张图的预处理、推理、后处理及总耗时） | CSV | output/per_image_timings.csv |
+| 批量性能评测结果 | Batch Size 性能评测结果（不同批量下的延迟、FPS、CPU 利用率、内存占用） | JSON | output/batch_metrics.json |
+| 边缘场景精度评测结果 | 各边缘场景的边缘端与云端模型精度指标（mAP、Precision、Recall） | JSON | output/scene_metrics.json |
+| 大模型分析结果 | 模型对比分析、场景泛化分析、性能分析、综合判定与精度/性能优化建议 | JSON | output/llm_analysis.json |
+| 设备信息采集结果 | 边缘设备的 SoC、CPU、GPU、NPU、内存、存储、操作系统信息 | JSON | output/device_info.json |
+| 模型信息采集结果 | 模型名、参数量、模型大小、精度格式、输入输出格式、框架及运行时版本 | JSON | output/model_info.json |
 
 ## 9.4 标准化评测结果
 
 | 文件名称   | 内容      | 生成时间   | 文件格式         | 文件路径   |
 | ------ | ------- | ------ | ------------ | ------ |
-| <br /> | 标准化精度结果 | <br /> | <br />       | <br /> |
-| <br /> | 标准化性能结果 | <br /> | <br />       | <br /> |
-| <br /> | 标准化场景结果 | <br /> | <br />       | <br /> |
-| <br /> | 标准化测评报告 | <br /> | Markdown/PDF | <br /> |
+| <br /> | 标准化测评报告 | <br /> | Markdown | <br /> |
 
 ## 9.5 附件清单
 
