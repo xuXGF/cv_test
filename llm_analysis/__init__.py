@@ -6,9 +6,9 @@
 
     analyzer = LLMAnalyzer()                    # 默认读取包内 llm_config.json
     text = analyzer.analyze(prompt, data)       # data 可为 str / dict / list
-    text = analyzer.analyze(
-        prompt,
-        data,
+    text = analyzer.analyze_prompt(             # 从包内 prompts.json 按名称选模板
+        "model_compare",
+        params={"input_data": "输入数据文本"},   # 填充模板中的 {{占位符}}
         provider="openai",                      # 覆盖配置文件中的端点类型
         system="你是模型测评专家",
         temperature=0.7,
@@ -19,6 +19,10 @@
 * 端点、模型、超时由包内 ``llm_config.json`` 配置；``provider`` 字段在
   ``ollama``（POST {base_url}/api/chat）与 ``openai``（OpenAI 兼容
   POST {base_url}/chat/completions）两种端点之间切换。
+* 提示词模板集中存放在包内 ``prompts.json``，键为提示词名称、值为模板
+  文本；模板中以 ``{{参数名}}`` 声明占位符，调用 ``analyze_prompt`` 时
+  通过 ``prompt_name`` 选择模板、``params`` 填充占位符，缺失或多余的
+  参数均抛出异常，不做静默忽略。
 * ``data`` 为 ``None`` 时只用提示词；为字符串时原样拼接；为 dict/list 时
   序列化为 JSON 文本后拼接，格式为 ``提示词 + 空行 + 以下是输入数据：``。
 * 文件不存在、JSON 非法、必填字段为空、HTTP 非 2xx、响应缺字段时均抛出
@@ -28,17 +32,30 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 import requests
 
 DEFAULT_CONFIG_PATH = Path(__file__).parent / "llm_config.json"
+DEFAULT_PROMPTS_PATH = Path(__file__).parent / "prompts.json"
 
 #: 支持的端点类型
 VALID_PROVIDERS = ("ollama", "openai")
 
-__all__ = ["LLMAnalyzer", "load_llm_config", "VALID_PROVIDERS", "DEFAULT_CONFIG_PATH"]
+#: 提示词模板占位符语法：{{参数名}}
+_PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
+
+__all__ = [
+    "LLMAnalyzer",
+    "load_llm_config",
+    "load_prompts",
+    "render_prompt",
+    "VALID_PROVIDERS",
+    "DEFAULT_CONFIG_PATH",
+    "DEFAULT_PROMPTS_PATH",
+]
 
 
 def load_llm_config(path: str | Path = DEFAULT_CONFIG_PATH) -> dict[str, Any]:
@@ -67,6 +84,69 @@ def load_llm_config(path: str | Path = DEFAULT_CONFIG_PATH) -> dict[str, Any]:
             f"LLM 配置文件顶层应为 JSON 对象，实际为 {type(raw).__name__}: {json_path}"
         )
     return raw
+
+
+def load_prompts(path: str | Path = DEFAULT_PROMPTS_PATH) -> dict[str, str]:
+    """读取提示词模板文件，返回 ``{提示词名称: 模板文本}``。
+
+    默认读取包内 ``prompts.json``；文件不存在、JSON 非法、顶层不是对象
+    或某个模板不是非空字符串时抛出带明确信息的异常。
+    """
+    json_path = Path(path)
+    try:
+        text = json_path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"提示词模板文件不存在: {json_path}") from exc
+    except OSError as exc:
+        raise OSError(f"提示词模板文件读取失败: {json_path}（{exc}）") from exc
+
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"提示词模板文件不是合法 JSON: {json_path}（第 {exc.lineno} 行：{exc.msg}）"
+        ) from exc
+
+    if not isinstance(raw, dict):
+        raise TypeError(
+            f"提示词模板文件顶层应为 JSON 对象，实际为 {type(raw).__name__}: {json_path}"
+        )
+    for name, template in raw.items():
+        if not isinstance(template, str) or not template.strip():
+            raise ValueError(
+                f"prompts.json 中提示词 {name!r} 的模板必须是非空字符串，请先填写"
+            )
+    return raw
+
+
+def render_prompt(template: str, params: dict[str, Any] | None = None) -> str:
+    """用 ``params`` 填充模板中的 ``{{占位符}}``，返回渲染后的提示词文本。
+
+    模板中的占位符缺少对应参数、或 ``params`` 中存在模板未使用的键时，
+    均抛出带明确信息的异常，不做静默忽略；非字符串参数值序列化为
+    JSON 文本后填充。
+    """
+    params = params or {}
+    placeholders = set(_PLACEHOLDER_RE.findall(template))
+    missing = sorted(placeholders - params.keys())
+    if missing:
+        raise ValueError(
+            f"提示词模板缺少参数值: {missing}，请在 params 中提供对应值"
+        )
+    unknown = sorted(set(params) - placeholders)
+    if unknown:
+        raise ValueError(
+            f"params 中存在模板未使用的参数: {unknown}，"
+            f"模板占位符: {sorted(placeholders)}"
+        )
+
+    def _replace(match: re.Match[str]) -> str:
+        value = params[match.group(1)]
+        if isinstance(value, str):
+            return value
+        return json.dumps(value, ensure_ascii=False, indent=2)
+
+    return _PLACEHOLDER_RE.sub(_replace, template)
 
 
 def _require_str(section: dict[str, Any], key: str, provider: str) -> str:
@@ -200,9 +280,14 @@ class LLMAnalyzer:
         text = analyzer.analyze("分析以下指标", {"mAP@0.5": 0.6024})
     """
 
-    def __init__(self, config_path: str | Path = DEFAULT_CONFIG_PATH) -> None:
-        """读取并保存端点配置。"""
+    def __init__(
+        self,
+        config_path: str | Path = DEFAULT_CONFIG_PATH,
+        prompts_path: str | Path = DEFAULT_PROMPTS_PATH,
+    ) -> None:
+        """读取并保存端点配置与提示词模板文件路径。"""
         self.config = load_llm_config(config_path)
+        self.prompts_path = prompts_path
 
     def analyze(
         self,
@@ -247,4 +332,41 @@ class LLMAnalyzer:
         api_key = _require_str(section, "api_key", provider_name)
         return _call_openai(
             base_url, model_name, timeout, messages, temperature, api_key
+        )
+
+    def analyze_prompt(
+        self,
+        prompt_name: str,
+        params: dict[str, Any] | None = None,
+        *,
+        provider: str | None = None,
+        system: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> str:
+        """按名称从 ``prompts.json`` 选取提示词模板，填充参数后发送给大模型。
+
+        :param prompt_name: prompts.json 中的提示词名称
+        :param params: 用于填充模板中 ``{{占位符}}`` 的参数字典；占位符
+            缺少参数值或参数未被模板使用时抛出异常
+        :param provider: 端点类型（ollama/openai），缺省用配置文件中的
+            ``provider`` 字段
+        :param system: 可选 system 提示词
+        :param model: 可选模型名，缺省用配置文件中对应端点的 ``model``
+        :param temperature: 可选采样温度，不传则不由请求携带
+        :return: 模型回复的纯文本
+        """
+        prompts = load_prompts(self.prompts_path)
+        if prompt_name not in prompts:
+            raise ValueError(
+                f"prompts.json 中不存在提示词 {prompt_name!r}，"
+                f"可用提示词: {sorted(prompts)}"
+            )
+        prompt = render_prompt(prompts[prompt_name], params)
+        return self.analyze(
+            prompt,
+            provider=provider,
+            system=system,
+            model=model,
+            temperature=temperature,
         )

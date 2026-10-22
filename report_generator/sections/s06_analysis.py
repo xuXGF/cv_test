@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+from llm_analysis import LLMAnalyzer
 
 from ..render import render
 
@@ -10,14 +16,7 @@ _TEMPLATE = r"""# 6. 评测结果对比与分析
 
 ## 6.1 云端原始模型与边缘端量化模型精度对比
 
-| 指标     |   原始模型 |   量化模型 |    变化值 |    变化率 | 分析     |
-| ------ | -----: | -----: | -----: | -----: | ------ |
-| 主要精度指标 | {{ov_main_orig}} | {{ov_main_quant}} | {{ov_main_delta}} | {{ov_main_rate}} | {{ov_main_analysis}} |
-| 其他指标   | {{ov_other_orig}} | {{ov_other_quant}} | {{ov_other_delta}} | {{ov_other_rate}} | {{ov_other_analysis}} |
-
-**分析：**
-
-{{ana_61=\[填写云端原始模型与边缘端量化模型的精度差异及变化原因。]}}
+{{ana_61=\[填写云端原始模型与边缘端量化模型的精度对比分析，包含指标对比表格与分析结论。]}}
 
 ## 6.2 不同测试场景下的评测结果对比
 
@@ -42,37 +41,47 @@ _TEMPLATE = r"""# 6. 评测结果对比与分析
 
 ## 6.4 推理性能分析
 
-| 分析维度       | 测试结果   | 分析     |
-| ---------- | ------ | ------ |
-| FPS        | {{perf_fps}} | {{perf_fps_analysis}} |
-| 预处理耗时      | {{perf_pre}} | {{perf_pre_analysis}} |
-| 模型推理耗时     | {{perf_infer}} | {{perf_infer_analysis}} |
-| 后处理耗时      | {{perf_post}} | {{perf_post_analysis}} |
-| CPU利用率     | {{perf_cpu}} | {{perf_cpu_analysis}} |
-| GPU/NPU利用率 | {{perf_npu}} | {{perf_npu_analysis}} |
-| 内存占用       | {{perf_mem}} | {{perf_mem_analysis}} |
+{{ana_64=\[填写推理性能分析，包含性能指标表格与性能瓶颈结论。]}}"""
 
-**性能瓶颈结论：**
 
-{{ana_64=\[填写主要性能瓶颈及影响。]}}"""
+def _accuracy_row(label: str, metrics: Mapping[str, Any], prefix: str) -> str:
+    """按指标前缀取 mAP/Precision/Recall/样本数，拼一行精度对比表格。"""
+    return (
+        f"| {label} | {metrics[prefix + 'map05']} | {metrics[prefix + 'map95']} | "
+        f"{metrics[prefix + 'precision']} | {metrics[prefix + 'recall']} | "
+        f"{metrics[prefix + 'samples']} |"
+    )
+
+
+def _build_compare_input(
+    cloud_metrics: Mapping[str, Any], edge_metrics: Mapping[str, Any]
+) -> str:
+    """组装 6.1 精度对比的输入数据（Markdown 表格文本）。
+
+    云端指标取 ``det_cloud_*`` 字段（local_info），边缘端指标取
+    ``det_edge_*`` 字段（metrics_summary.json），缺字段时抛 KeyError。
+    """
+    return "\n".join(
+        [
+            "| 模型           |   mAP@0.5 |   mAP@0.5:0.95 |   Precision |   Recall |   测试样本数 |",
+            "|:---------------|----------:|---------------:|------------:|---------:|-------------:|",
+            _accuracy_row("云端原始模型", cloud_metrics, "det_cloud_"),
+            _accuracy_row("边缘端量化模型", edge_metrics, "det_edge_"),
+        ]
+    )
+
+
+def _build_perf_input(perf_metrics: Mapping[str, Any]) -> dict[str, Any]:
+    """组装 6.4 推理性能的输入数据（batch_metrics 字段，去除 notes 说明）。"""
+    return {key: value for key, value in perf_metrics.items() if key != "notes"}
 
 
 @dataclass
 class AnalysisSection:
     """第 6 章：评测结果对比与分析。"""
 
-    # 6.1 精度对比
-    ov_main_orig: str = ""  # 主要精度指标-原始模型
-    ov_main_quant: str = ""  # 主要精度指标-量化模型
-    ov_main_delta: str = ""  # 主要精度指标-变化值
-    ov_main_rate: str = ""  # 主要精度指标-变化率
-    ov_main_analysis: str = ""  # 主要精度指标-分析
-    ov_other_orig: str = ""  # 其他指标-原始模型
-    ov_other_quant: str = ""  # 其他指标-量化模型
-    ov_other_delta: str = ""  # 其他指标-变化值
-    ov_other_rate: str = ""  # 其他指标-变化率
-    ov_other_analysis: str = ""  # 其他指标-分析
-    ana_61: str = ""  # 6.1 分析正文
+    # 6.1 小节完整内容：大模型输出（指标对比表格 + 分析结论）
+    ana_61: str = ""
 
     # 6.2 不同测试场景下的评测结果对比
     sc6_01_samples: str = ""  # 场景1-样本量
@@ -112,25 +121,49 @@ class AnalysisSection:
     gen_angle_perf: str = ""  # 不同角度-泛化表现
     ana_63: str = ""  # 6.3 分析正文
 
-    # 6.4 推理性能分析
-    perf_fps: str = ""  # FPS-测试结果
-    perf_fps_analysis: str = ""  # FPS-分析
-    perf_pre: str = ""  # 预处理耗时-测试结果
-    perf_pre_analysis: str = ""  # 预处理耗时-分析
-    perf_infer: str = ""  # 模型推理耗时-测试结果
-    perf_infer_analysis: str = ""  # 模型推理耗时-分析
-    perf_post: str = ""  # 后处理耗时-测试结果
-    perf_post_analysis: str = ""  # 后处理耗时-分析
-    perf_cpu: str = ""  # CPU利用率-测试结果
-    perf_cpu_analysis: str = ""  # CPU利用率-分析
-    perf_npu: str = ""  # GPU/NPU利用率-测试结果
-    perf_npu_analysis: str = ""  # GPU/NPU利用率-分析
-    perf_mem: str = ""  # 内存占用-测试结果
-    perf_mem_analysis: str = ""  # 内存占用-分析
-
-    # 6.4 性能瓶颈结论正文
+    # 6.4 小节完整内容：大模型输出（性能指标表格 + 性能瓶颈结论）
     ana_64: str = ""
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""
         return render(_TEMPLATE, asdict(self))
+
+    def fill_llm_analysis(
+        self,
+        cloud_metrics: Mapping[str, Any],
+        edge_metrics: Mapping[str, Any],
+        perf_metrics: Mapping[str, Any],
+        output_dir: str | Path | None = None,
+    ) -> None:
+        """调用大模型生成 6.1 / 6.4 的完整小节内容，写入 ana_61 / ana_64。
+
+        大模型输出即小节正文（指标表格 + 分析文字），原样填入；
+        ``output_dir`` 不为 None 时，把原始输出保存到该目录下的
+        ``llm_analysis.json``，以提示词名称作为字段名：
+        ``model_compare`` / ``performance_analysis``。
+
+        :param cloud_metrics: 云端原始模型精度指标（local_info，det_cloud_* 字段）
+        :param edge_metrics: 边缘端量化模型精度指标（metrics_summary.json，det_edge_* 字段）
+        :param perf_metrics: 性能测试数据（batch_metrics.json）
+        :param output_dir: 大模型原始输出保存目录，None 不保存
+        """
+        analyzer = LLMAnalyzer()
+        self.ana_61 = analyzer.analyze_prompt(
+            "model_compare",
+            params={"input_data": _build_compare_input(cloud_metrics, edge_metrics)},
+        )
+        self.ana_64 = analyzer.analyze_prompt(
+            "performance_analysis",
+            params={"input_data": _build_perf_input(perf_metrics)},
+        )
+        if output_dir is not None:
+            out_dir = Path(output_dir)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            raw_outputs = {
+                "model_compare": self.ana_61,
+                "performance_analysis": self.ana_64,
+            }
+            (out_dir / "llm_analysis.json").write_text(
+                json.dumps(raw_outputs, ensure_ascii=False, indent=4) + "\n",
+                encoding="utf-8",
+            )
