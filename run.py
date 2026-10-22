@@ -129,6 +129,21 @@ def build_sample_report() -> TestReport:
     report.verdict.fill_accuracy_rows()
     report.verdict.fill_perf_rows()
     report.verdict.fill_scene_loss()
+    # 7.4 综合判定：由大模型基于 1~7.3 节报告正文生成（提示词见
+    # llm_analysis/prompts.json 的 verdict_analysis），原始输出并入
+    # output/llm_analysis.json
+    report.verdict.fill_verdict_analysis(
+        report.render_before_verdict(), OUTPUT_DIR
+    )
+
+    # 8.1 精度优化建议：由大模型基于整份报告正文生成建议表格
+    # （提示词见 llm_analysis/prompts.json 的 accuracy_optimization），
+    # 输入为 report 直接转为字符串，不单独提取章节
+    report.suggestion.fill_accuracy_suggestions(report.render(), OUTPUT_DIR)
+    # 8.2 推理性能优化建议：由大模型基于整份报告正文生成建议表格
+    # （提示词见 llm_analysis/prompts.json 的 performance_optimization），
+    # 输入同样为 report 直接转为字符串，不单独提取章节
+    report.suggestion.fill_performance_suggestions(report.render(), OUTPUT_DIR)
 
     return report
 

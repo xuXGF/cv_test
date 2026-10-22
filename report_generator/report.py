@@ -65,6 +65,19 @@ class TestReport:
         blocks.extend(getattr(self, name).render() for name in _SECTION_FIELDS)
         return "\n\n".join(blocks)
 
+    def render_before_verdict(self) -> str:
+        """渲染 1~7.3 节正文，作为 7.4 综合判定的大模型输入。
+
+        不含 7.4 及后续章节，避免把待生成的判定内容与未填充模板传给大模型。
+        """
+        blocks = [render(_DOC_HEADER, {"report_title": self.report_title})]
+        for name in _SECTION_FIELDS:
+            if name == "verdict":
+                break
+            blocks.append(getattr(self, name).render())
+        blocks.append(self.verdict.render_before_verdict())
+        return "\n\n".join(blocks)
+
     def save(self, path: str | Path, *, encoding: str = "utf-8") -> Path:
         """将报告写入文件并返回写入路径。"""
         target = Path(path)

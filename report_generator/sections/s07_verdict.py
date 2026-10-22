@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from llm_analysis import LLMAnalyzer
 from tools import index_scene_metrics, pct, to_float
 
 from ..render import render
@@ -12,7 +14,8 @@ from ..render import render
 #: 项目根目录（sections -> report_generator -> 项目根），用于解析场景相对路径
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-_TEMPLATE = r"""# 7. 评测结果判定
+#: 7.1~7.3 正文，同时作为 7.4 大模型判定的输入
+_TEMPLATE_BODY = r"""# 7. 评测结果判定
 
 ## 7.1 精度指标达标情况
 
@@ -33,23 +36,14 @@ _TEMPLATE = r"""# 7. 评测结果判定
 
 | 场景 | 原始模型-正常数据集 | 原始模型-场景 | 原始模型差距 | 边端模型-正常数据集 | 边端模型-场景 | 边端模型差距 | 是否达标 |
 | ---- | ----: | ----: | ----: | ----: | ----: | ----: | ---- |
-{{scene_loss_rows}}
+{{scene_loss_rows}}"""
 
-## 7.4 评测结果综合判定
-
-**精度指标：** {{verdict_accuracy=\[达标/不达标]}}
-
-**推理性能：** {{verdict_perf=\[达标/不达标]}}
-
-**精度损失：** {{verdict_loss=\[满足/不满足要求]}}
-
-**边缘场景泛化：** {{verdict_generalization=\[满足/不满足要求]}}
-
-**综合判定：** {{verdict_overall=\[通过/需优化]}}
-
-**判定说明：**
+#: 7.4 由大模型生成完整正文（精度/性能/泛化三部分判定 + 综合验收结论）
+_TEMPLATE_VERDICT = r"""## 7.4 评测结果综合判定
 
 {{ana_74=\[填写综合评测结果及判定依据。]}}"""
+
+_TEMPLATE = f"{_TEMPLATE_BODY}\n\n{_TEMPLATE_VERDICT}"
 
 
 @dataclass
@@ -90,13 +84,8 @@ class VerdictSection:
     # 7.3 场景精度损失（由 fill_scene_loss 按场景生成，不手填）
     scene_loss_rows: str = ""  # 场景精度损失表格行（每行：场景/指标/正常与场景精度/差距/判定）
 
-    # 7.4 评测结果综合判定
-    verdict_accuracy: str = ""  # 精度指标（未填时默认「\[达标/不达标]」）
-    verdict_perf: str = ""  # 推理性能（未填时默认「\[达标/不达标]」）
-    verdict_loss: str = ""  # 精度损失（未填时默认「\[满足/不满足要求]」）
-    verdict_generalization: str = ""  # 边缘场景泛化（未填时默认「\[满足/不满足要求]」）
-    verdict_overall: str = ""  # 综合判定（未填时默认「\[通过/需优化]」）
-    ana_74: str = ""  # 判定说明正文
+    # 7.4 评测结果综合判定（由 fill_verdict_analysis 调用大模型生成完整正文）
+    ana_74: str = ""  # 精度/性能/泛化三部分判定 + 综合验收结论
 
     def fill_accuracy_rows(self) -> None:
         """7.1 检测精度达标情况：云端原始值/实测值/损失/判定由公式计算，不手填。
@@ -246,6 +235,41 @@ class VerdictSection:
             )
 
         self.scene_loss_rows = "\n".join(rows)
+
+    def fill_verdict_analysis(
+        self, report_text: str, output_dir: str | Path | None = None
+    ) -> None:
+        """7.4 评测结果综合判定：调用大模型基于报告正文生成完整判定内容。
+
+        输入为 1~7.3 节报告正文（``TestReport.render_before_verdict()``），
+        由提示词 ``verdict_analysis`` 按其固定模板输出精度/性能/泛化三部分
+        判定与综合验收结论；大模型输出原样填入 ``ana_74``。
+        ``output_dir`` 不为 None 时，把原始输出并入该目录下的
+        ``llm_analysis.json``（字段名 ``verdict_analysis``），与第 6 章
+        大模型输出保存在同一文件，已有字段保留。
+
+        :param report_text: 报告 1~7.3 节正文
+        :param output_dir: 大模型原始输出保存目录，None 不保存
+        """
+        analyzer = LLMAnalyzer()
+        self.ana_74 = analyzer.analyze_prompt(
+            "verdict_analysis",
+            params={"input_data": report_text},
+        )
+        if output_dir is not None:
+            out_path = Path(output_dir) / "llm_analysis.json"
+            outputs = {}
+            if out_path.exists():
+                outputs = json.loads(out_path.read_text(encoding="utf-8"))
+            outputs["verdict_analysis"] = self.ana_74
+            out_path.write_text(
+                json.dumps(outputs, ensure_ascii=False, indent=4) + "\n",
+                encoding="utf-8",
+            )
+
+    def render_before_verdict(self) -> str:
+        """渲染 7.1~7.3 正文（不含 7.4），作为 7.4 大模型判定的输入数据。"""
+        return render(_TEMPLATE_BODY, asdict(self))
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

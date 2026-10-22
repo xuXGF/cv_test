@@ -170,6 +170,23 @@ def _resolve_timeout(section: dict[str, Any], provider: str) -> float:
         ) from exc
 
 
+def _resolve_num_ctx(section: dict[str, Any], provider: str) -> int | None:
+    """取 Ollama 上下文窗口 token 数，缺省不传（使用服务端默认值）。
+
+    服务端默认窗口较小时，长输入会被从头截断导致提示词丢失，
+    需在配置中显式设置 ``num_ctx`` 覆盖；非法值抛出明确异常。
+    """
+    raw = section.get("num_ctx")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"llm_config.json 中 {provider}.num_ctx 不是有效整数: {raw!r}"
+        ) from exc
+
+
 def _build_messages(
     prompt: str, data: Any, system: str | None
 ) -> list[dict[str, str]]:
@@ -227,12 +244,18 @@ def _call_ollama(
     timeout: float,
     messages: list[dict[str, str]],
     temperature: float | None,
+    num_ctx: int | None = None,
 ) -> str:
     """调用 Ollama 端点（POST {base_url}/api/chat），返回回复文本。"""
     url = base_url.rstrip("/") + "/api/chat"
     payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
+    options: dict[str, Any] = {}
     if temperature is not None:
-        payload["options"] = {"temperature": temperature}
+        options["temperature"] = temperature
+    if num_ctx is not None:
+        options["num_ctx"] = num_ctx
+    if options:
+        payload["options"] = options
     result = _http_post_json(
         url, {"Content-Type": "application/json"}, payload, timeout
     )
@@ -328,7 +351,10 @@ class LLMAnalyzer:
         messages = _build_messages(prompt, data, system)
 
         if provider_name == "ollama":
-            return _call_ollama(base_url, model_name, timeout, messages, temperature)
+            num_ctx = _resolve_num_ctx(section, provider_name)
+            return _call_ollama(
+                base_url, model_name, timeout, messages, temperature, num_ctx
+            )
         api_key = _require_str(section, "api_key", provider_name)
         return _call_openai(
             base_url, model_name, timeout, messages, temperature, api_key

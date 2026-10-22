@@ -3,7 +3,8 @@
     "ollama": {
         "base_url": "http://10.206.23.123:32301",
         "model": "qwen2.5:32b",
-        "timeout": 120
+        "timeout": 300,
+        "num_ctx": 32768
     },
     "openai": {
         "base_url": "https://llm-3dvfan059atxshxd.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
