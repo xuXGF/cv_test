@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from tools import index_scene_metrics
+
 from ..render import render
 
 #: 项目根目录（sections -> report_generator -> 项目根），用于解析场景相对路径
@@ -145,11 +147,7 @@ class AccuracySection:
         if not isinstance(scenes, list):
             raise TypeError(f"测评导出的 scenes 应为列表，实际为: {type(scenes).__name__}")
 
-        metrics_by_path: dict[str, dict] = {}
-        for item in scenes:
-            if not isinstance(item, dict) or not item.get("path"):
-                raise ValueError(f"4.5 边缘场景实测指标缺少场景路径: {item!r}")
-            metrics_by_path[str(Path(item["path"]).resolve())] = item
+        metrics_by_path = index_scene_metrics(scenes)
 
         rows: list[str] = []
         for i, path in enumerate(paths, start=1):

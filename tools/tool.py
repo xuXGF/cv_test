@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 def format_params(param_str: str | int) -> str:
     """
     将参数量转为 K / M / B 可读字符串
@@ -41,6 +44,23 @@ def pct(part: float, total: float, label: str = "") -> str:
         return f"{part / total * 100:.1f}%"
     except ZeroDivisionError as exc:
         raise ValueError(f"{label}为 0，无法计算占比") from exc
+
+
+def index_scene_metrics(scenes: object) -> dict[str, dict]:
+    """
+    将场景测评结果（scene_metrics.json 的 scenes 列表）按场景目录绝对路径建索引
+    :param scenes: 场景列表，每项为含 path 与实测指标的字典
+    :return: 场景目录绝对路径 -> 场景条目
+    """
+    if not isinstance(scenes, list):
+        raise TypeError(f"场景测评结果 scenes 应为列表，实际为: {type(scenes).__name__}")
+
+    indexed: dict[str, dict] = {}
+    for item in scenes:
+        if not isinstance(item, dict) or not item.get("path"):
+            raise ValueError(f"场景实测指标缺少场景路径: {item!r}")
+        indexed[str(Path(item["path"]).resolve())] = item
+    return indexed
 
 
 def format_memory(mb: float) -> str:

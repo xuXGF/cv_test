@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
-from tools import pct, to_float
+from tools import index_scene_metrics, pct, to_float
 
 from ..render import render
+
+#: 项目根目录（sections -> report_generator -> 项目根），用于解析场景相对路径
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 _TEMPLATE = r"""# 7. 评测结果判定
 
@@ -25,13 +29,11 @@ _TEMPLATE = r"""# 7. 评测结果判定
 | 端到端耗时(ms) | {{v_latency_cloud}} | {{v_latency_target}} | {{v_latency_actual}} | {{v_latency_ok}} |
 | FPS          | {{v_fps_cloud}} | {{v_fps_target}} | {{v_fps_actual}} | {{v_fps_ok}} |
 
-## 7.3 精度损失是否满足要求
+## 7.3 场景精度损失
 
-| 项目       | 要求     | 实际结果   | 判定       |
-| -------- | ------ | ------ | -------- |
-| 量化精度损失   | {{req_quant_loss=例如 <1%}} | {{res_quant_loss}} | {{jud_quant_loss=满足 / 不满足}} |
-| 边缘场景精度损失 | {{req_edge_loss}} | {{res_edge_loss}} | {{jud_edge_loss=满足 / 不满足}} |
-| 关键指标变化   | {{req_key_change}} | {{res_key_change}} | {{jud_key_change=满足 / 不满足}} |
+| 场景 | 原始模型-正常数据集 | 原始模型-场景 | 原始模型差距 | 边端模型-正常数据集 | 边端模型-场景 | 边端模型差距 | 是否达标 |
+| ---- | ----: | ----: | ----: | ----: | ----: | ----: | ---- |
+{{scene_loss_rows}}
 
 ## 7.4 评测结果综合判定
 
@@ -85,16 +87,8 @@ class VerdictSection:
     v_fps_actual: str = ""  # FPS-实测值
     v_fps_ok: str = ""  # FPS-是否达标
 
-    # 7.3 精度损失是否满足要求
-    req_quant_loss: str = ""  # 量化精度损失-要求（未填时默认「例如 <1%」）
-    res_quant_loss: str = ""  # 量化精度损失-实际结果
-    jud_quant_loss: str = ""  # 量化精度损失-判定（未填时默认「满足 / 不满足」）
-    req_edge_loss: str = ""  # 边缘场景精度损失-要求
-    res_edge_loss: str = ""  # 边缘场景精度损失-实际结果
-    jud_edge_loss: str = ""  # 边缘场景精度损失-判定（未填时默认「满足 / 不满足」）
-    req_key_change: str = ""  # 关键指标变化-要求
-    res_key_change: str = ""  # 关键指标变化-实际结果
-    jud_key_change: str = ""  # 关键指标变化-判定（未填时默认「满足 / 不满足」）
+    # 7.3 场景精度损失（由 fill_scene_loss 按场景生成，不手填）
+    scene_loss_rows: str = ""  # 场景精度损失表格行（每行：场景/指标/正常与场景精度/差距/判定）
 
     # 7.4 评测结果综合判定
     verdict_accuracy: str = ""  # 精度指标（未填时默认「\[达标/不达标]」）
@@ -172,6 +166,86 @@ class VerdictSection:
         self.v_fps_cloud = f"{1000.0 / cloud_latency:.2f}"
         self.v_fps_actual = f"{1000.0 / edge_latency:.2f}"
         self.v_fps_ok = "是" if 1000.0 / edge_latency >= fps_target else "否"
+
+    def fill_scene_loss(self) -> None:
+        """7.3 场景精度损失：逐场景对比正常数据集精度与场景精度的差距。
+
+        正常数据集精度取 4.3 节 mAP@0.5（原始模型 det_cloud_map05、
+        边端模型 det_edge_map05）；场景精度取 4.5 节场景实测
+        （原始模型 cloud_map05、边端模型 det_edge_map05，来自
+        output/scene_metrics.json）。场景顺序沿用 local_info.json 的
+        scene.path，按场景目录绝对路径匹配。
+
+        差距 =（场景精度 − 正常数据集精度）/ 正常数据集精度 × 100%，
+        正值表示场景精度高于正常数据集（涨），负值表示低于正常数据集（降）；
+        边端模型差距 ≥ 原始模型差距即判定达标，不设绝对阈值。
+        场景未配置时表格为空；已配置场景缺少实测指标时抛出异常，
+        不做静默兜底。
+        """
+        scene = getattr(self, "scene", None)
+        if not scene:
+            return
+        if not isinstance(scene, dict):
+            raise TypeError(
+                f"local_info 的 scene 应为对象（含 path/desc 列表），实际为: {type(scene).__name__}"
+            )
+        paths = scene.get("path", [])
+        if not isinstance(paths, list):
+            raise TypeError("scene.path 应为列表")
+        if not paths:
+            return
+
+        scenes = getattr(self, "scenes", None)
+        if scenes is None:
+            raise ValueError(
+                "7.3 场景精度损失缺少实测数据（output/scene_metrics.json 中无 scenes 字段），"
+                "请先运行 evaluate_yolov8_onnx_scene.py 生成场景测评结果"
+            )
+        metrics_by_path = index_scene_metrics(scenes)
+
+        rows: list[str] = []
+        for i, path in enumerate(paths, start=1):
+            scene_dir = Path(path)
+            if not scene_dir.is_absolute():
+                scene_dir = _PROJECT_ROOT / scene_dir
+            metrics = metrics_by_path.get(str(scene_dir.resolve()))
+            if metrics is None:
+                raise ValueError(
+                    f"7.3 场景精度损失缺少场景 {i}（{path}）的实测指标，"
+                    "请检查 local_info.json 的 scene.path 与测评导出的 scenes 是否对应"
+                )
+
+            cloud_normal = to_float(
+                getattr(self, "det_cloud_map05", ""), "det_cloud_map05"
+            )
+            edge_normal = to_float(
+                getattr(self, "det_edge_map05", ""), "det_edge_map05"
+            )
+            cloud_scene = to_float(
+                metrics.get("cloud_map05"), f"cloud_map05（场景{i}）"
+            )
+            edge_scene = to_float(
+                metrics.get("det_edge_map05"), f"det_edge_map05（场景{i}）"
+            )
+
+            if cloud_normal == 0:
+                raise ValueError(f"det_cloud_map05 为 0，无法计算场景 {i} 的精度差距")
+            if edge_normal == 0:
+                raise ValueError(f"det_edge_map05 为 0，无法计算场景 {i} 的精度差距")
+
+            cloud_gap = (cloud_scene - cloud_normal) / cloud_normal
+            edge_gap = (edge_scene - edge_normal) / edge_normal
+
+            rows.append(
+                f"| 场景{i} "
+                f"| {cloud_normal:.4f} | {cloud_scene:.4f} "
+                f"| {pct(cloud_scene - cloud_normal, cloud_normal, 'det_cloud_map05')} "
+                f"| {edge_normal:.4f} | {edge_scene:.4f} "
+                f"| {pct(edge_scene - edge_normal, edge_normal, 'det_edge_map05')} "
+                f"| {'是' if edge_gap >= cloud_gap else '否'} |"
+            )
+
+        self.scene_loss_rows = "\n".join(rows)
 
     def render(self) -> str:
         """渲染本章节为 Markdown 文本。"""

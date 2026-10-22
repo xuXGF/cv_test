@@ -27,59 +27,6 @@ from dataset_info import collect_dataset_info
 dataset_info = collect_dataset_info()  # 缺省使用包内自带 data/coco128
 
 
-
-# def build_sample_report() -> TestReport:
-#     """示例：为部分参数赋值后的报告。"""
-#     # 1.1
-#     report = TestReport()
-#     report.report_title = f"{model_info.model_name}模型测评报告"
-#     report.basic_info.report_name = report.report_title
-#     report.basic_info.report_no = "RPT-2026-0001"
-#     report.basic_info.model_name = model_info.model_name
-#     report.basic_info.algo_type = local_info.algo_type
-#     report.basic_info.test_date = time.strftime("%Y/%m/%d %H:%M", time.localtime())
-#     # report.basic_info.conclusion = "通过"
-#
-#     # 1.2
-#     report.basic_info.algo_name = model_info.model_name
-#     report.basic_info.algo_category = local_info.algo_type
-#     report.basic_info.model_arch = model_info.model_arch
-#     report.basic_info.model_version = model_info.model_version
-#     report.basic_info.param_count = format_params(model_info.param_count)
-#     report.basic_info.FLOPs = model_info.flops
-#     report.basic_info.model_size = model_info.model_size
-#     report.basic_info.input_format = model_info.input_format
-#     report.basic_info.output_format = model_info.output_format
-#     report.basic_info.num_classes = model_info.num_classes
-#     report.basic_info.input_size = model_info.input_size
-#     report.basic_info.train_framework = model_info.train_framework
-#     report.basic_info.original_model_format = model_info.original_model_format
-#     report.basic_info.edge_model_format = model_info.edge_model_format
-#
-#
-#
-#     # 1.3
-#     report.basic_info.device_name = device_info.device_name
-#     report.basic_info.soc = device_info.soc
-#     report.basic_info.os = device_info.os
-#     report.basic_info.cpu = device_info.cpu
-#     report.basic_info.gpu = device_info.gpu
-#     report.basic_info.npu = device_info.npu
-#     report.basic_info.memory = device_info.memory
-#     report.basic_info.storage = device_info.storage
-#
-#     # 1.4
-#     report.basic_info.python_version = model_info.python_version
-#     report.basic_info.dl_framework =  model_info.train_framework
-#     report.basic_info.inference_framework = model_info.inference_framework
-#     report.basic_info.runtime_version = model_info.runtime_version
-#     report.basic_info.batch_size = model_info.batch_size
-#     report.basic_info.input_resolution = model_info.input_size
-#     report.basic_info.other_env = ''
-#
-#     return report
-
-
 def build_sample_report() -> TestReport:
     report = TestReport()
     report.basic_info.__dict__.update(model_info.__dict__)
@@ -174,11 +121,14 @@ def build_sample_report() -> TestReport:
     )
 
     # 第 7 章：判定输入（云端列/目标值来自 local_info，
-    # 边缘端列来自 metrics_summary.json），实测/损失/FPS/达标由公式计算
+    # 边缘端列来自 metrics_summary.json），实测/损失/FPS/达标由公式计算；
+    # 7.3 场景精度损失使用 scene_metrics.json 的逐场景指标
     report.verdict.__dict__.update(local_info.__dict__)
     report.verdict.__dict__.update(eval_metrics)
+    report.verdict.__dict__.update(scene_metrics)
     report.verdict.fill_accuracy_rows()
     report.verdict.fill_perf_rows()
+    report.verdict.fill_scene_loss()
 
     return report
 
