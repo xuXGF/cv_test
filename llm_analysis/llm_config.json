@@ -1,5 +1,5 @@
 {
-    "provider": "openai",
+    "provider": "ollama",
     "ollama": {
         "base_url": "http://10.206.23.123:32301",
         "model": "qwen2.5:32b",

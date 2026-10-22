@@ -149,6 +149,12 @@ def build_sample_report() -> TestReport:
     eval_metrics = json.loads(text)
     report.accuracy.__dict__.update(local_info.__dict__)
     report.accuracy.__dict__.update(eval_metrics)
+    # 4.5 边缘场景精度（evaluate_yolov8_onnx_scene.py 独立导出，字段名与 s04 对齐）
+    text = (OUTPUT_DIR / "scene_metrics.json").read_text(encoding="utf-8")
+    scene_metrics = json.loads(text)
+    report.accuracy.__dict__.update(scene_metrics)
+    # 按 2.2 节场景清单匹配 scenes 逐场景实测指标生成表格行，不手填
+    report.accuracy.fill_scene_accuracy()
 
     # 5.1-5.3 边缘端列
     report.speed.__dict__.update(local_info.__dict__)

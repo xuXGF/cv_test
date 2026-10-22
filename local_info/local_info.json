@@ -5,8 +5,12 @@
     "data_type": "图像",
 
     "scene": {
-        "path": ["dataset_info/data/scene/scene_1","dataset_info/data/scene/scene_1"],
-        "desc": ["逆光、玻璃强反光及雪地强光等复杂光照场景","逆光、玻璃强反光及雪地强光等复杂光照场景"]
+        "path": ["dataset_info/data/scene/scene_1","dataset_info/data/scene/scene_2"],
+        "desc": ["逆光、玻璃强反光及雪地强光等复杂光照场景","逆光、玻璃强反光复杂光照场景"],
+        "cloud_map05": ["0.7229", "1.000"],
+        "cloud_map95": ["0.5701", "0.8165"],
+        "cloud_precision": ["0.6375", "0.7286"],
+        "cloud_recall": ["0.6375", "1.000"]
     },
 
     "cloud_model_name": "yolov8n",
