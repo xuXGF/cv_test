@@ -114,36 +114,25 @@ def build_sample_report() -> TestReport:
     report.speed.__dict__.update(batch_metrics)
 
     # 第 6 章：评测结果对比与分析
-    # 6.1 / 6.3 / 6.4 小节内容（表格+分析）由大模型生成（提示词模板见
-    # llm_analysis/prompts.json），原始输出保存到 output/llm_analysis.json
     report.analysis.fill_llm_analysis(
         local_info.__dict__, eval_metrics, batch_metrics, scene_metrics, OUTPUT_DIR
     )
 
     # 第 7 章：判定输入（云端列/目标值来自 local_info，
-    # 边缘端列来自 metrics_summary.json），实测/损失/FPS/达标由公式计算；
-    # 7.3 场景精度损失使用 scene_metrics.json 的逐场景指标
     report.verdict.__dict__.update(local_info.__dict__)
     report.verdict.__dict__.update(eval_metrics)
     report.verdict.__dict__.update(scene_metrics)
     report.verdict.fill_accuracy_rows()
     report.verdict.fill_perf_rows()
     report.verdict.fill_scene_loss()
-    # 7.4 综合判定：由大模型基于 1~7.3 节报告正文生成（提示词见
-    # llm_analysis/prompts.json 的 verdict_analysis），原始输出并入
-    # output/llm_analysis.json
-    report.verdict.fill_verdict_analysis(
-        report.render_before_verdict(), OUTPUT_DIR
-    )
-
-    # 8.1 精度优化建议：由大模型基于整份报告正文生成建议表格
-    # （提示词见 llm_analysis/prompts.json 的 accuracy_optimization），
-    # 输入为 report 直接转为字符串，不单独提取章节
-    report.suggestion.fill_accuracy_suggestions(report.render(), OUTPUT_DIR)
-    # 8.2 推理性能优化建议：由大模型基于整份报告正文生成建议表格
-    # （提示词见 llm_analysis/prompts.json 的 performance_optimization），
-    # 输入同样为 report 直接转为字符串，不单独提取章节
-    report.suggestion.fill_performance_suggestions(report.render(), OUTPUT_DIR)
+    # 7.4 / 8.1 / 8.2 大模型输入统一使用整份报告正文，只渲染一次
+    report_text = report.render()
+    # 7.4 综合判定（提示词 verdict_analysis）
+    report.verdict.fill_verdict_analysis(report_text, OUTPUT_DIR)
+    # 8.1 精度优化建议（提示词 accuracy_optimization）
+    report.suggestion.fill_accuracy_suggestions(report_text, OUTPUT_DIR)
+    # 8.2 推理性能优化建议（提示词 performance_optimization）
+    report.suggestion.fill_performance_suggestions(report_text, OUTPUT_DIR)
 
     return report
 

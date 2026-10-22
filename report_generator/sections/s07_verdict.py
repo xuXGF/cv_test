@@ -239,16 +239,16 @@ class VerdictSection:
     def fill_verdict_analysis(
         self, report_text: str, output_dir: str | Path | None = None
     ) -> None:
-        """7.4 评测结果综合判定：调用大模型基于报告正文生成完整判定内容。
+        """7.4 评测结果综合判定：调用大模型基于整份报告正文生成完整判定内容。
 
-        输入为 1~7.3 节报告正文（``TestReport.render_before_verdict()``），
+        输入为报告完整正文（``TestReport.render()``，直接转为字符串），
         由提示词 ``verdict_analysis`` 按其固定模板输出精度/性能/泛化三部分
         判定与综合验收结论；大模型输出原样填入 ``ana_74``。
         ``output_dir`` 不为 None 时，把原始输出并入该目录下的
         ``llm_analysis.json``（字段名 ``verdict_analysis``），与第 6 章
         大模型输出保存在同一文件，已有字段保留。
 
-        :param report_text: 报告 1~7.3 节正文
+        :param report_text: 报告完整正文
         :param output_dir: 大模型原始输出保存目录，None 不保存
         """
         analyzer = LLMAnalyzer()
