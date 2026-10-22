@@ -167,10 +167,10 @@ def build_sample_report() -> TestReport:
     report.speed.__dict__.update(batch_metrics)
 
     # 第 6 章：评测结果对比与分析
-    # 6.1 / 6.4 小节内容（表格+分析）由大模型生成（提示词模板见
+    # 6.1 / 6.3 / 6.4 小节内容（表格+分析）由大模型生成（提示词模板见
     # llm_analysis/prompts.json），原始输出保存到 output/llm_analysis.json
     report.analysis.fill_llm_analysis(
-        local_info.__dict__, eval_metrics, batch_metrics, OUTPUT_DIR
+        local_info.__dict__, eval_metrics, batch_metrics, scene_metrics, OUTPUT_DIR
     )
 
     # 第 7 章：判定输入（云端列/目标值来自 local_info，
