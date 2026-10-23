@@ -115,25 +115,25 @@ def build_sample_report() -> TestReport:
     report.speed.__dict__.update(batch_metrics)
 
     # 第 6 章：评测结果对比与分析
-    # report.analysis.fill_llm_analysis(
-    #     local_info.__dict__, eval_metrics, batch_metrics, scene_metrics, OUTPUT_DIR
-    # )
+    report.analysis.fill_llm_analysis(
+        local_info.__dict__, eval_metrics, batch_metrics, scene_metrics, OUTPUT_DIR
+    )
 
     # 第 7 章：判定输入（云端列/目标值来自 local_info，
-    # report.verdict.__dict__.update(local_info.__dict__)
-    # report.verdict.__dict__.update(eval_metrics)
-    # report.verdict.__dict__.update(scene_metrics)
-    # report.verdict.fill_accuracy_rows()
-    # report.verdict.fill_perf_rows()
-    # report.verdict.fill_scene_loss()
-    # # 7.4 / 8.1 / 8.2 大模型输入统一使用整份报告正文，只渲染一次
-    # report_text = report.render()
-    # # 7.4 综合判定（提示词 verdict_analysis）
-    # report.verdict.fill_verdict_analysis(report_text, OUTPUT_DIR)
-    # # 8.1 精度优化建议（提示词 accuracy_optimization）
-    # report.suggestion.fill_accuracy_suggestions(report_text, OUTPUT_DIR)
-    # # 8.2 推理性能优化建议（提示词 performance_optimization）
-    # report.suggestion.fill_performance_suggestions(report_text, OUTPUT_DIR)
+    report.verdict.__dict__.update(local_info.__dict__)
+    report.verdict.__dict__.update(eval_metrics)
+    report.verdict.__dict__.update(scene_metrics)
+    report.verdict.fill_accuracy_rows()
+    report.verdict.fill_perf_rows()
+    report.verdict.fill_scene_loss()
+    # 7.4 / 8.1 / 8.2 大模型输入统一使用整份报告正文，只渲染一次
+    report_text = report.render()
+    # 7.4 综合判定（提示词 verdict_analysis）
+    report.verdict.fill_verdict_analysis(report_text, OUTPUT_DIR)
+    # 8.1 精度优化建议（提示词 accuracy_optimization）
+    report.suggestion.fill_accuracy_suggestions(report_text, OUTPUT_DIR)
+    # 8.2 推理性能优化建议（提示词 performance_optimization）
+    report.suggestion.fill_performance_suggestions(report_text, OUTPUT_DIR)
 
     # 第 9 章：9.4 标准化测评报告（仅一行，生成时间取当前日期）
     report.attachment.fill_std_result(SAMPLE_REPORT_PATH)
