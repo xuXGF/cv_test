@@ -2,11 +2,14 @@
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 import time
 from tools import *
 
 from report_generator import TestReport
 OUTPUT_DIR = Path(__file__).parent / "output"
+MODEL_DIR = Path(__file__).parent / "model_info"
 SAMPLE_REPORT_PATH = OUTPUT_DIR / "report_sample.md"
 
 from local_info import load_local_info
@@ -122,8 +125,31 @@ def build_sample_report() -> TestReport:
     return report
 
 
+#: 生成 output/ 评测数据的三项脚本，按顺序执行（精度 -> 性能 -> 场景）
+EVAL_SCRIPTS = (
+    "evaluate_yolov8_onnx_manual.py",
+    "evaluate_yolov8_onnx_batch.py",
+    "evaluate_yolov8_onnx_scene.py",
+)
+
+
+def run_evaluations() -> None:
+    """依次执行三项评测脚本，把结果写入 output/。
+
+    脚本内部按自身位置解析相对路径，因此固定工作目录为 ``model_info``，
+    不依赖 run.py 的启动目录；任一脚本失败立即抛出，避免用旧结果生成报告。
+    """
+    for script in EVAL_SCRIPTS:
+        print(f"\n===== 执行评测脚本：{script} =====")
+        subprocess.run([sys.executable, script], cwd=MODEL_DIR, check=True)
+
+
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 评测脚本输出：metrics_summary.json / per_class_metrics.csv /
+    # per_image_timings.csv、batch_metrics.json、scene_metrics.json
+    run_evaluations()
 
     # 采集结果落盘，便于追溯报告 1.2/1.3 字段来源
     save_model_info(model_info, OUTPUT_DIR / "model_info.json")
@@ -136,9 +162,9 @@ def main() -> None:
     print(f"示例填充报告: {sample_path}")
 
     from md_to_word import convert
-    argv1 = "./output/report_sample.md"
-    argv2 = './output/测试报告.docx'
-    convert(Path(argv1), Path(argv2))
+    docx_path = OUTPUT_DIR / "测试报告.docx"
+    convert(SAMPLE_REPORT_PATH, docx_path)
+    print(f"示例填充报告 Word: {docx_path}")
 
 
 if __name__ == "__main__":

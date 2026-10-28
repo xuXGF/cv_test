@@ -26,7 +26,7 @@ pip install onnxruntime opencv-python numpy requests psutil
 
 ```text
 code/
-├── run.py                                # 主入口：汇总采集/评测结果并生成测评报告
+├── run.py                                # 主入口：执行三项评测、汇总采集结果并生成测评报告
 ├── generate_report.py                    # 示例入口：演示按模板生成空报告/手填报告
 ├── run_test.py                           # 大模型调用示例脚本
 ├── template.md                           # 测评报告标准模板（9 章）
@@ -51,24 +51,25 @@ code/
 ## 快速开始
 
 ```bash
-# 1. 全量精度评测 -> output/metrics_summary.json、per_class_metrics.csv、per_image_timings.csv
-cd model_info && python3 evaluate_yolov8_onnx_manual.py && cd ..
-
-# 2. Batch Size 性能评测 -> output/batch_metrics.json
-cd model_info && python3 evaluate_yolov8_onnx_batch.py && cd ..
-
-# 3. 边缘场景精度评测 -> output/scene_metrics.json
-python3 model_info/evaluate_yolov8_onnx_scene.py
-
-# 4. 汇总采集与评测结果，调用大模型分析并生成报告 -> output/report_sample.md
+# 一键执行：三项评测 -> 汇总采集结果 -> 调用大模型分析 -> 生成报告
 python3 run.py
+```
+
+`run.py` 会先在 `model_info/` 下依次执行全量精度、Batch 性能、边缘场景三项评测脚本
+（等价于下面三条命令），再汇总结果生成 `output/report_sample.md` 与 `output/测试报告.docx`；
+任一评测脚本失败会立即抛出，不会用旧结果生成报告。
+
+```bash
+# 单独重跑某一项评测（可选）
+cd model_info && python3 evaluate_yolov8_onnx_manual.py && cd ..   # -> metrics_summary.json、per_class_metrics.csv、per_image_timings.csv
+cd model_info && python3 evaluate_yolov8_onnx_batch.py && cd ..    # -> batch_metrics.json
+python3 model_info/evaluate_yolov8_onnx_scene.py                   # -> scene_metrics.json
 
 # 生成空模板报告（验证与 template.md 一致）
 python3 generate_report.py
 ```
 
 > 前两个评测脚本的路径参数按 `model_info` 目录解析，需在该目录下运行；场景脚本基于自身位置解析路径，可在任意目录运行。
-> `run.py` 只负责汇总与渲染，不会自动执行评测脚本，需先完成步骤 1~3。
 
 各信息采集模块（`model_info` / `device_info` / `dataset_info` / `local_info`）通过 Python 代码调用，用法见各包 `__init__.py` 的 docstring。
 
@@ -182,13 +183,14 @@ scene_metrics.json     边缘场景精度（4.5 / 7.3）
 | 文件 | 内容 | 生成方 |
 | ---- | ---- | ---- |
 | `output/report_sample.md` | 标准化测评报告 | `run.py` |
+| `output/测试报告.docx` | 报告 Word 版本（由 Markdown 转换） | `run.py`（调用 `md_to_word.convert`） |
 | `output/model_info.json` | 模型元数据 | `run.py` |
 | `output/device_info.json` | 设备硬件信息 | `run.py` |
-| `output/metrics_summary.json` | 边缘端精度与速度指标汇总 | `evaluate_yolov8_onnx_manual.py` |
-| `output/per_class_metrics.csv` | 逐类别精度明细 | `evaluate_yolov8_onnx_manual.py` |
-| `output/per_image_timings.csv` | 逐图分段耗时明细 | `evaluate_yolov8_onnx_manual.py` |
-| `output/batch_metrics.json` | Batch Size 性能评测结果 | `evaluate_yolov8_onnx_batch.py` |
-| `output/scene_metrics.json` | 边缘场景精度评测结果 | `evaluate_yolov8_onnx_scene.py` |
+| `output/metrics_summary.json` | 边缘端精度与速度指标汇总 | `run.py` → `evaluate_yolov8_onnx_manual.py` |
+| `output/per_class_metrics.csv` | 逐类别精度明细 | `run.py` → `evaluate_yolov8_onnx_manual.py` |
+| `output/per_image_timings.csv` | 逐图分段耗时明细 | `run.py` → `evaluate_yolov8_onnx_manual.py` |
+| `output/batch_metrics.json` | Batch Size 性能评测结果 | `run.py` → `evaluate_yolov8_onnx_batch.py` |
+| `output/scene_metrics.json` | 边缘场景精度评测结果 | `run.py` → `evaluate_yolov8_onnx_scene.py` |
 | `output/llm_analysis.json` | 大模型分析与建议原始输出 | `run.py`（调用大模型） |
 
 ## 设计约定
