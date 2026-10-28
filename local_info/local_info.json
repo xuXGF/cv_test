@@ -1,4 +1,5 @@
 {
+    "report_no": "RPT-2026-10-01",
     "algo_type": "目标检测",
     "dataset_name": "coco数据集",
     "data_source": "网络公开数据集",

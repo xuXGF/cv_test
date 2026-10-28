@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .s00_preview import PreviewSection
 from .s01_basic_info import BasicInfoSection
 from .s02_dataset import DatasetSection
 from .s03_config import ConfigSection
@@ -13,6 +14,7 @@ from .s08_suggestions import SuggestionSection
 from .s09_attachments import AttachmentSection
 
 __all__ = [
+    "PreviewSection",
     "BasicInfoSection",
     "DatasetSection",
     "ConfigSection",

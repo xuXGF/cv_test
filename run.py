@@ -34,36 +34,9 @@ def build_sample_report() -> TestReport:
     report.basic_info.__dict__.update(local_info.__dict__)
     report.basic_info.__dict__.update(device_info.__dict__)
 
-    report.report_title = f"{model_info.model_name}模型测评报告"
+    report.report_title = f"{model_info.model_name} 模型测评报告"
+    report.cover_date = time.strftime("%Y.%m", time.localtime())
     report.basic_info.report_name = report.report_title
-    report.basic_info.report_no = "RPT-2026-0001"
-    report.basic_info.test_date = time.strftime("%Y/%m/%d %H:%M", time.localtime())
-    # report.basic_info.conclusion = "通过"
-
-    # 1.2
-    report.basic_info.algo_category = local_info.algo_type
-    report.basic_info.param_count = format_params(model_info.param_count)
-    report.basic_info.FLOPs = model_info.flops
-
-    # 1.3
-
-    # 1.4
-    report.basic_info.dl_framework = model_info.train_framework
-    report.basic_info.input_resolution = model_info.input_size
-    report.basic_info.other_env = ''
-    # report.dataset.dataset_name = local_info.dataset_name
-
-    return report
-
-def build_sample_report() -> TestReport:
-    report = TestReport()
-    report.basic_info.__dict__.update(model_info.__dict__)
-    report.basic_info.__dict__.update(local_info.__dict__)
-    report.basic_info.__dict__.update(device_info.__dict__)
-
-    report.report_title = f"{model_info.model_name}模型测评报告"
-    report.basic_info.report_name = report.report_title
-    report.basic_info.report_no = "RPT-2026-0001"
     report.basic_info.test_date = time.strftime("%Y/%m/%d %H:%M", time.localtime())
     # report.basic_info.conclusion = "通过"
 
@@ -75,6 +48,12 @@ def build_sample_report() -> TestReport:
     # 1.4 环境字段与 ModelInfo 同名（深度学习框架/输入分辨率复用
     #     train_framework/input_size），由上方合并自动填充
 
+    # 预览表（封面后第一页）：测试基本信息与 1.x 原文对应
+    report.preview.__dict__.update(model_info.__dict__)
+    report.preview.__dict__.update(local_info.__dict__)
+    report.preview.__dict__.update(device_info.__dict__)
+    report.preview.test_date = report.basic_info.test_date
+    report.preview.fill_basic_info()
 
     # 第 2 章：测试数据集说明
     # 合并顺序即优先级（后者覆盖前者）：模型侧字段 -> 数据集扫描 -> 本地手填
@@ -130,13 +109,15 @@ def build_sample_report() -> TestReport:
     report_text = report.render()
     # 7.4 综合判定（提示词 verdict_analysis）
     report.verdict.fill_verdict_analysis(report_text, OUTPUT_DIR)
+    # 预览表测试结论：取 7.4 的「综合验收结论」正文
+    report.preview.fill_conclusion(report.verdict.ana_74)
     # 8.1 精度优化建议（提示词 accuracy_optimization）
     report.suggestion.fill_accuracy_suggestions(report_text, OUTPUT_DIR)
     # 8.2 推理性能优化建议（提示词 performance_optimization）
     report.suggestion.fill_performance_suggestions(report_text, OUTPUT_DIR)
 
     # 第 9 章：9.4 标准化测评报告（仅一行，生成时间取当前日期）
-    report.attachment.fill_std_result(SAMPLE_REPORT_PATH)
+    # report.attachment.fill_std_result(SAMPLE_REPORT_PATH)
 
     return report
 
@@ -153,6 +134,11 @@ def main() -> None:
 
     # print(f"空参数报告（等价模板）: {empty_path}")
     print(f"示例填充报告: {sample_path}")
+
+    from md_to_word import convert
+    argv1 = "./output/report_sample.md"
+    argv2 = './output/测试报告.docx'
+    convert(Path(argv1), Path(argv2))
 
 
 if __name__ == "__main__":

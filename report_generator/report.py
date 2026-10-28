@@ -13,12 +13,26 @@ from .sections import (
     BasicInfoSection,
     ConfigSection,
     DatasetSection,
+    PreviewSection,
     SpeedSection,
     SuggestionSection,
     VerdictSection,
 )
 
-_DOC_HEADER = r"""# {{report_title=\*\*测评报告}}"""
+#: 封面页：居中标题 + 底部日期，末尾分页符确保第 1 章另起一页
+_DOC_HEADER = r"""<div align="center">
+
+<br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+
+<h1>{{report_title=测评报告}}</h1>
+
+<br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+
+<p>{{cover_date=2026.10}}</p>
+
+</div>
+
+<div style="page-break-after: always;"></div>"""
 
 #: 章节顺序
 _SECTION_FIELDS = (
@@ -30,7 +44,7 @@ _SECTION_FIELDS = (
     "analysis",
     "verdict",
     "suggestion",
-    "attachment",
+    # "attachment",
 )
 
 
@@ -49,6 +63,8 @@ class TestReport:
     """
 
     report_title: str = ""
+    cover_date: str = ""
+    preview: PreviewSection = field(default_factory=PreviewSection)
     basic_info: BasicInfoSection = field(default_factory=BasicInfoSection)
     dataset: DatasetSection = field(default_factory=DatasetSection)
     config: ConfigSection = field(default_factory=ConfigSection)
@@ -59,18 +75,25 @@ class TestReport:
     suggestion: SuggestionSection = field(default_factory=SuggestionSection)
     attachment: AttachmentSection = field(default_factory=AttachmentSection)
 
+    def _render_header(self) -> str:
+        return render(
+            _DOC_HEADER,
+            {"report_title": self.report_title, "cover_date": self.cover_date},
+        )
+
     def render(self) -> str:
         """将整份报告渲染为 Markdown 文本。"""
-        blocks = [render(_DOC_HEADER, {"report_title": self.report_title})]
+        # 封面页 -> 预览表页 -> 正文（预览页自带分页符）
+        blocks = [self._render_header(), self.preview.render()]
         blocks.extend(getattr(self, name).render() for name in _SECTION_FIELDS)
         return "\n\n".join(blocks)
 
     def render_before_verdict(self) -> str:
-        """渲染 1~7.3 节正文，作为 7.4 综合判定的大模型输入。
+        """渲染封面、预览表与 1~7.3 节正文，作为 7.4 综合判定的大模型输入。
 
         不含 7.4 及后续章节，避免把待生成的判定内容与未填充模板传给大模型。
         """
-        blocks = [render(_DOC_HEADER, {"report_title": self.report_title})]
+        blocks = [self._render_header(), self.preview.render()]
         for name in _SECTION_FIELDS:
             if name == "verdict":
                 break
